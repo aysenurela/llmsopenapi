@@ -1,10 +1,10 @@
+import { Redis } from '@upstash/redis'
 import { randomUUID } from 'node:crypto'
 
-// Module-level store — persists while the function is warm.
-// Sequential API calls (as an LLM would make them) always hit a warm instance.
-const accounts = []
-const subscriptions = []
-const checkouts = []
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+})
 
 // ── Plans ─────────────────────────────────────────────────────────────────
 
@@ -74,20 +74,21 @@ function handleRecommendPlan(req, res) {
   })
 }
 
-function handleCreateAccount(req, res) {
+async function handleCreateAccount(req, res) {
   const { email, name, company } = req.body ?? {}
 
   if (!email || !name || !company) {
     return send(res, 400, { error: '`email`, `name`, and `company` are required.' })
   }
 
-  const existing = accounts.find(a => a.email === email)
-  if (existing) {
-    return send(res, 409, { error: 'An account with this email already exists.', accountId: existing.id })
+  const existingId = await redis.get(`account:email:${email}`)
+  if (existingId) {
+    return send(res, 409, { error: 'An account with this email already exists.', accountId: existingId })
   }
 
   const account = { id: randomUUID(), email, name, company, createdAt: new Date().toISOString() }
-  accounts.push(account)
+  await redis.set(`account:${account.id}`, account)
+  await redis.set(`account:email:${email}`, account.id)
 
   send(res, 201, {
     accountId: account.id,
@@ -98,14 +99,14 @@ function handleCreateAccount(req, res) {
   })
 }
 
-function handleCreateSubscription(req, res) {
+async function handleCreateSubscription(req, res) {
   const { accountId, planId } = req.body ?? {}
 
   if (!accountId || !planId) {
     return send(res, 400, { error: '`accountId` and `planId` are required.' })
   }
 
-  const account = accounts.find(a => a.id === accountId)
+  const account = await redis.get(`account:${accountId}`)
   if (!account) return send(res, 404, { error: 'Account not found.' })
 
   const plan = PLANS[planId]
@@ -113,13 +114,16 @@ function handleCreateSubscription(req, res) {
     return send(res, 400, { error: `Unknown planId. Valid values: ${Object.keys(PLANS).join(', ')}.` })
   }
 
-  const existing = subscriptions.find(s => s.accountId === accountId && s.status === 'pending')
-  if (existing) {
-    return send(res, 409, {
-      error: 'Account already has a pending subscription.',
-      subscriptionId: existing.id,
-      nextAction: 'confirm_checkout',
-    })
+  const existingSubId = await redis.get(`sub:account:${accountId}`)
+  if (existingSubId) {
+    const existingSub = await redis.get(`sub:${existingSubId}`)
+    if (existingSub?.status === 'pending') {
+      return send(res, 409, {
+        error: 'Account already has a pending subscription.',
+        subscriptionId: existingSubId,
+        nextAction: 'confirm_checkout',
+      })
+    }
   }
 
   const sub = {
@@ -129,7 +133,8 @@ function handleCreateSubscription(req, res) {
     billingCycle: 'monthly', status: 'pending',
     createdAt: new Date().toISOString(),
   }
-  subscriptions.push(sub)
+  await redis.set(`sub:${sub.id}`, sub)
+  await redis.set(`sub:account:${accountId}`, sub.id)
 
   send(res, 201, {
     subscriptionId: sub.id,
@@ -144,7 +149,7 @@ function handleCreateSubscription(req, res) {
   })
 }
 
-function handleCreateCheckout(req, res) {
+async function handleCreateCheckout(req, res) {
   const { subscriptionId, confirmed } = req.body ?? {}
 
   if (!subscriptionId) {
@@ -156,40 +161,41 @@ function handleCreateCheckout(req, res) {
     })
   }
 
-  const sub = subscriptions.find(s => s.id === subscriptionId)
+  const sub = await redis.get(`sub:${subscriptionId}`)
   if (!sub) return send(res, 404, { error: 'Subscription not found.' })
 
   if (sub.status === 'active') {
-    const existing = checkouts.find(c => c.subscriptionId === subscriptionId)
-    return send(res, 409, { error: 'Checkout already exists.', checkoutUrl: existing?.url })
+    const checkout = await redis.get(`checkout:sub:${subscriptionId}`)
+    return send(res, 409, { error: 'Checkout already exists.', checkoutUrl: checkout?.url })
   }
 
   const checkoutId = randomUUID()
   const checkoutUrl = `https://checkout.example.com/pay/${checkoutId}`
-  checkouts.push({ id: checkoutId, subscriptionId, url: checkoutUrl, createdAt: new Date().toISOString() })
-  sub.status = 'active'
+  const checkout = { id: checkoutId, subscriptionId, url: checkoutUrl, createdAt: new Date().toISOString() }
+
+  await redis.set(`sub:${subscriptionId}`, { ...sub, status: 'active' })
+  await redis.set(`checkout:sub:${subscriptionId}`, checkout)
 
   send(res, 200, { checkoutUrl, subscriptionId, status: 'active', nextAction: 'completed' })
 }
 
-function handleReset(req, res) {
-  accounts.length = 0
-  subscriptions.length = 0
-  checkouts.length = 0
+async function handleReset(req, res) {
+  const keys = await redis.keys('*')
+  if (keys.length > 0) await redis.del(...keys)
   send(res, 200, { message: 'All data cleared.' })
 }
 
 // ── Router ────────────────────────────────────────────────────────────────
 
 const ROUTES = {
-  '/api/recommend-plan':    { POST: handleRecommendPlan },
-  '/api/create-account':    { POST: handleCreateAccount },
-  '/api/create-subscription': { POST: handleCreateSubscription },
-  '/api/create-checkout':   { POST: handleCreateCheckout },
-  '/api/reset':             { DELETE: handleReset },
+  '/api/recommend-plan':       { POST: handleRecommendPlan },
+  '/api/create-account':       { POST: handleCreateAccount },
+  '/api/create-subscription':  { POST: handleCreateSubscription },
+  '/api/create-checkout':      { POST: handleCreateCheckout },
+  '/api/reset':                { DELETE: handleReset },
 }
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   const path = (req.url ?? '').split('?')[0]
@@ -204,7 +210,7 @@ export default function handler(req, res) {
   }
 
   try {
-    fn(req, res)
+    await fn(req, res)
   } catch (err) {
     send(res, 500, { error: err.message })
   }
