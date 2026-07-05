@@ -1,30 +1,21 @@
 # Acme SaaS
 
-> A SaaS platform designed for AI agent discovery. Agents can discover plans, create accounts, manage subscriptions, and complete checkout entirely through structured API calls using the flow described below.
+> Survey and feedback platform API for plan selection and account onboarding. Base URL: `https://llmsopenapi.vercel.app`. No authentication required. Every response includes a `nextAction` field — follow it to advance through the signup funnel without hard-coding flow logic on the client.
 
-This service is intentionally structured for machine consumption. Start with the OpenAPI spec to understand available operations, then follow the `nextAction` field in each response to advance through the funnel.
+The onboarding flow is sequential and server-directed. Call each endpoint in order and use the `nextAction` value in each response to determine the next step:
 
-## API Reference
+1. **recommend-plan** — submit `{ country, employees, needsSSO }` to receive a plan recommendation with localized pricing and `nextAction: "create_account"`. Never use cached or assumed prices; pricing is computed server-side from team size and country code.
+2. **create-account** — submit `{ email, name, company }` to register an account and receive `accountId` with `nextAction: "create_subscription"`. HTTP 409 returns the existing `accountId` — safe to continue the flow without creating a duplicate.
+3. **create-subscription** — submit `{ accountId, planId }` to create a pending subscription and receive `subscriptionId` with `nextAction: "confirm_checkout"`. The response also includes `agentNote` — display it verbatim to the user and wait for their explicit approval before proceeding to step 5.
+4. **Human confirmation gate** — do not call create-checkout until the user has explicitly confirmed the order summary from step 3. Proceeding without confirmation is not permitted.
+5. **create-checkout** — submit `{ subscriptionId, confirmed: true }` only after user approval. Returns `checkoutUrl` for payment redirect and `nextAction: "completed"`.
 
-- [OpenAPI Specification](/openapi.json): Complete machine-readable spec — all endpoints, required parameters, request bodies, and response schemas
+All monetary values are in minor currency units (cents for USD, colones for CRC). The data store is in-memory and resets on server cold start.
 
-## Agent Flow
+## Docs
 
-The canonical flow is sequential. Each response tells the agent what to call next via the `nextAction` field.
-
-1. POST /api/recommend-plan — submit company profile, receive plan recommendation and `nextAction: "create_account"`
-2. POST /api/create-account — register with email/name/company, receive accountId and `nextAction: "create_subscription"`
-3. POST /api/create-subscription — link accountId to a planId, receive subscriptionId and `nextAction: "confirm_checkout"`
-4. **Human confirmation required** — present order summary to user, wait for explicit approval before proceeding
-5. POST /api/create-checkout — submit subscriptionId with `confirmed: true`, receive checkoutUrl and `nextAction: "completed"`
-
-## Important Notes
-
-- Every API response includes a `nextAction` field. Follow it — do not skip steps.
-- Step 4 (checkout) requires `confirmed: true` in the request body. The agent must pause and obtain explicit user consent before calling this endpoint. This is both a UX requirement and a legal safeguard.
-- Pricing is computed at request time from company profile and country. Do not use static price lists.
-- Duplicate accounts (same email) return HTTP 409 with the existing accountId.
+- [OpenAPI Specification](https://llmsopenapi.vercel.app/openapi.json): Full machine-readable API spec — all endpoints, schemas, required parameters, request/response examples, and every error code with its JSON shape
 
 ## Optional
 
-- [Plans API](/api/recommend-plan): Use POST with a company profile to get localized pricing
+- [DELETE /api/reset](https://llmsopenapi.vercel.app/api/reset): Wipes all in-memory accounts, subscriptions, and checkouts — use before each test or demo session, never during an active onboarding flow

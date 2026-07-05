@@ -10,9 +10,9 @@ const STEPS = [
     title: 'Recommend Plan',
     description: 'Submit a company profile to receive a plan recommendation with localized pricing.',
     fields: [
-      { name: 'country',   label: 'Country',    type: 'text',     default: 'CR' },
-      { name: 'employees', label: 'Employees',  type: 'number',   default: 15 },
-      { name: 'needsSSO',  label: 'Needs SSO',  type: 'checkbox', default: true },
+      { name: 'country',   label: 'Country',    type: 'text',     default: '' },
+      { name: 'employees', label: 'Employees',  type: 'number',   default: '' },
+      { name: 'needsSSO',  label: 'Needs SSO',  type: 'checkbox', default: false },
     ],
   },
   {
@@ -22,9 +22,9 @@ const STEPS = [
     title: 'Create Account',
     description: 'Register a new user account.',
     fields: [
-      { name: 'email',   label: 'Email',   type: 'email', default: 'jane@acme.com' },
-      { name: 'name',    label: 'Name',    type: 'text',  default: 'Jane Smith' },
-      { name: 'company', label: 'Company', type: 'text',  default: 'Acme Corp' },
+      { name: 'email',   label: 'Email',   type: 'email', default: '' },
+      { name: 'name',    label: 'Name',    type: 'text',  default: '' },
+      { name: 'company', label: 'Company', type: 'text',  default: '' },
     ],
   },
   {
@@ -61,6 +61,7 @@ const FieldShape = PropTypes.shape({
 
 export default function App() {
   const [responses, setResponses] = useState({})
+  const [resetKey, setResetKey] = useState(0)
 
   function handleSuccess(stepId, data) {
     setResponses(r => ({ ...r, [stepId]: data }))
@@ -69,6 +70,7 @@ export default function App() {
   async function handleReset() {
     await fetch('/api/reset', { method: 'DELETE' })
     setResponses({})
+    setResetKey(k => k + 1)
   }
 
   function getPrefilled(fields) {
@@ -88,15 +90,92 @@ export default function App() {
         <div className="header-inner">
           <div>
             <h1>Acme SaaS</h1>
-            <p>AI Agent Flow Tester</p>
+            <p>Get started with your plan</p>
           </div>
           <button className="reset-btn" onClick={handleReset}>↺ Reset Data</button>
         </div>
       </header>
+
+      <section className="plans-section">
+        <div className="plans-inner">
+          <div className="plan-card">
+            <div className="plan-top">
+              <h2 className="plan-name">Team Advantage</h2>
+              <p className="plan-tagline">Get actionable insights with robust tools.</p>
+              <div className="plan-price">
+                <span className="plan-amount">CA$30</span>
+                <span className="plan-cadence">/ user / month</span>
+              </div>
+              <p className="plan-billing">Starting at 3 users, billed annually</p>
+              <a href="#signup" className="plan-btn">Sign up</a>
+            </div>
+            <ul className="plan-features">
+              <li>3+ users</li>
+              <li>Unlimited surveys</li>
+              <li>Unlimited questions</li>
+              <li>50,000 responses per year</li>
+              <li>Shared asset library</li>
+              <li>User accounts and roles</li>
+              <li>Survey and user permissions</li>
+              <li>Create and analyze surveys together</li>
+              <li>Tag people in comments</li>
+              <li>Password protection for dashboards</li>
+              <li>Consolidated billing</li>
+            </ul>
+          </div>
+
+          <div className="plan-card">
+            <div className="plan-top">
+              <h2 className="plan-name">Team Premier</h2>
+              <p className="plan-tagline">Unlock deeper, richer data analysis.</p>
+              <div className="plan-price">
+                <span className="plan-amount">CA$84</span>
+                <span className="plan-cadence">/ user / month</span>
+              </div>
+              <p className="plan-billing">Starting at 3 users, billed annually</p>
+              <a href="#signup" className="plan-btn">Sign up</a>
+            </div>
+            <ul className="plan-features">
+              <li>3+ users</li>
+              <li>Unlimited surveys</li>
+              <li>Unlimited questions</li>
+              <li>100,000 responses per year</li>
+              <li>Everything in Premier (individual plan)</li>
+              <li>Shared asset library</li>
+              <li>User accounts and roles</li>
+            </ul>
+          </div>
+
+          <div className="plan-card">
+            <div className="plan-top">
+              <h2 className="plan-name">Enterprise</h2>
+              <p className="plan-tagline">Powerful admin tools, integrations, and collaboration for your organization.</p>
+              <div className="plan-price plan-price--enterprise">
+                <span className="plan-amount">Enterprise Byline</span>
+              </div>
+              <p className="plan-billing">&nbsp;</p>
+              <a href="#demo" className="plan-btn plan-btn--outline">Get a demo</a>
+            </div>
+            <ul className="plan-features">
+              <li>5+ users</li>
+              <li>Everything in Team Premier</li>
+              <li>User management and reports</li>
+              <li>Enhanced governance and security</li>
+              <li>Centralized billing and GSA</li>
+              <li>US, Canada, or EU data center</li>
+              <li>Premium onboarding</li>
+              <li>Customer Success access</li>
+              <li>Single sign-on (SSO)</li>
+              <li>Smart notifications</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <main className="main">
         {STEPS.map(s => (
           <ApiPanel
-            key={s.id}
+            key={`${s.id}-${resetKey}`}
             step={s.step}
             endpoint={s.endpoint}
             title={s.title}
@@ -173,10 +252,6 @@ function ApiPanel({ step, endpoint, title, description, fields, prefilled, onSuc
     <div className={`panel panel--${status}`}>
       <div className="panel-head">
         <span className="step-badge">{step}</span>
-        <div className="panel-meta">
-          <span className="method-badge">POST</span>
-          <code>{endpoint}</code>
-        </div>
         <span className="panel-title">{title}</span>
       </div>
 

@@ -3,68 +3,263 @@
   "info": {
     "title": "Acme SaaS API",
     "version": "1.0.0",
-    "description": "AI-agent-ready SaaS API. Agents should start by reading /llms.txt, then follow the `nextAction` field in each response to advance through the plan recommendation → account creation → subscription → checkout funnel."
+    "description": "RESTful API for plan selection and account onboarding. Each response includes a `nextAction` field that indicates the next endpoint to call, allowing callers to complete the signup funnel sequentially without embedding flow logic on the client.",
+    "contact": {
+      "name": "Acme SaaS",
+      "url": "https://llmsopenapi.vercel.app"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "externalDocs": {
+    "description": "Integration guide (llms.txt)",
+    "url": "https://llmsopenapi.vercel.app/llms.txt"
   },
   "servers": [
+    { "url": "https://llmsopenapi.vercel.app", "description": "Production" },
     { "url": "http://localhost:5173", "description": "Local dev" }
+  ],
+  "tags": [
+    {
+      "name": "Onboarding",
+      "description": "Sequential funnel: `recommend-plan` → `create-account` → `create-subscription` → (user confirmation) → `create-checkout`. Follow the `nextAction` field in each response to advance to the next step."
+    },
+    {
+      "name": "Utility",
+      "description": "Helper endpoints for development and testing."
+    }
   ],
   "components": {
     "schemas": {
+      "PlanId": {
+        "type": "string",
+        "enum": ["starter", "pro", "enterprise"],
+        "description": "Machine-readable plan identifier. Use the value returned by `/api/recommend-plan` when calling `/api/create-subscription`.",
+        "example": "enterprise"
+      },
+      "NextAction": {
+        "type": "string",
+        "enum": ["create_account", "create_subscription", "confirm_checkout", "completed"],
+        "description": "Identifier of the next operation in the onboarding funnel. Follow this field instead of hard-coding flow logic.",
+        "example": "create_account"
+      },
       "Error": {
         "type": "object",
+        "description": "Standard error envelope returned on all 4xx and 5xx responses.",
+        "required": ["error"],
         "properties": {
-          "error": { "type": "string", "description": "Human-readable error message" }
+          "error": {
+            "type": "string",
+            "description": "Human-readable description of what went wrong.",
+            "example": "`employees` must be a positive number."
+          }
         },
-        "required": ["error"]
+        "example": { "error": "`employees` must be a positive number." }
       },
       "PlanRecommendation": {
         "type": "object",
+        "description": "Recommended plan with localized pricing and the reasoning behind the selection.",
+        "required": ["recommendedPlan", "planId", "price", "currency", "billingCycle", "reasons", "nextAction"],
         "properties": {
-          "recommendedPlan": { "type": "string", "example": "Enterprise", "description": "Display name of the recommended plan" },
-          "planId": { "type": "string", "enum": ["starter", "pro", "enterprise"], "description": "Machine ID to pass to /api/create-subscription" },
-          "price": { "type": "integer", "description": "Price in minor currency units (e.g. cents for USD)" },
-          "currency": { "type": "string", "example": "USD", "description": "ISO 4217 currency code" },
-          "billingCycle": { "type": "string", "example": "monthly" },
-          "reasons": { "type": "array", "items": { "type": "string" }, "description": "Human-readable reasons for the recommendation" },
-          "nextAction": { "type": "string", "example": "create_account" }
-        },
-        "required": ["recommendedPlan", "planId", "price", "currency", "reasons", "nextAction"]
+          "recommendedPlan": {
+            "type": "string",
+            "description": "Human-readable plan name.",
+            "example": "Enterprise"
+          },
+          "planId": {
+            "$ref": "#/components/schemas/PlanId"
+          },
+          "price": {
+            "type": "integer",
+            "description": "Price in minor currency units (e.g. cents for USD, colones for CRC).",
+            "minimum": 0,
+            "example": 149900
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code, derived from the `country` input.",
+            "minLength": 3,
+            "maxLength": 3,
+            "example": "CRC"
+          },
+          "billingCycle": {
+            "type": "string",
+            "description": "Billing frequency.",
+            "enum": ["monthly", "annual"],
+            "example": "monthly"
+          },
+          "reasons": {
+            "type": "array",
+            "description": "Ordered list of human-readable reasons explaining why this plan was selected.",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "example": [
+              "SSO required — only Enterprise supports SSO",
+              "15 employees exceeds Starter limit of 10"
+            ]
+          },
+          "nextAction": {
+            "$ref": "#/components/schemas/NextAction"
+          }
+        }
       },
       "Account": {
         "type": "object",
+        "description": "Newly created account record.",
+        "required": ["accountId", "email", "company", "createdAt", "nextAction"],
         "properties": {
-          "accountId": { "type": "string", "format": "uuid" },
-          "email": { "type": "string", "format": "email" },
-          "company": { "type": "string" },
-          "createdAt": { "type": "string", "format": "date-time" },
-          "nextAction": { "type": "string", "example": "create_subscription" }
-        },
-        "required": ["accountId", "email", "company", "createdAt", "nextAction"]
+          "accountId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique account identifier. Pass this value to `/api/create-subscription`.",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Registered email address.",
+            "example": "jane@acme.com"
+          },
+          "company": {
+            "type": "string",
+            "description": "Company name associated with the account.",
+            "example": "Acme Corp"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp of account creation.",
+            "example": "2026-07-05T14:00:00.000Z"
+          },
+          "nextAction": {
+            "$ref": "#/components/schemas/NextAction"
+          }
+        }
       },
       "Subscription": {
         "type": "object",
+        "description": "Newly created subscription in `pending` state. The caller must present the order summary to the user and obtain explicit confirmation before proceeding to `/api/create-checkout`.",
+        "required": ["subscriptionId", "accountId", "plan", "price", "currency", "billingCycle", "status", "nextAction"],
         "properties": {
-          "subscriptionId": { "type": "string", "format": "uuid" },
-          "accountId": { "type": "string", "format": "uuid" },
-          "plan": { "type": "string", "example": "Enterprise" },
-          "price": { "type": "integer" },
-          "currency": { "type": "string" },
-          "billingCycle": { "type": "string" },
-          "status": { "type": "string", "enum": ["pending", "active"] },
-          "nextAction": { "type": "string", "example": "confirm_checkout" },
-          "agentNote": { "type": "string", "description": "Instruction for the agent — must be shown to and confirmed by the user before proceeding" }
-        },
-        "required": ["subscriptionId", "accountId", "plan", "price", "currency", "status", "nextAction"]
+          "subscriptionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique subscription identifier. Pass this value to `/api/create-checkout`.",
+            "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+          },
+          "accountId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The account this subscription is linked to.",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "plan": {
+            "type": "string",
+            "description": "Human-readable plan name.",
+            "example": "Enterprise"
+          },
+          "price": {
+            "type": "integer",
+            "description": "Price in USD cents.",
+            "minimum": 0,
+            "example": 14900
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code.",
+            "minLength": 3,
+            "maxLength": 3,
+            "example": "USD"
+          },
+          "billingCycle": {
+            "type": "string",
+            "description": "Billing frequency.",
+            "enum": ["monthly", "annual"],
+            "example": "monthly"
+          },
+          "status": {
+            "type": "string",
+            "description": "Subscription lifecycle state.",
+            "enum": ["pending", "active"],
+            "example": "pending"
+          },
+          "nextAction": {
+            "$ref": "#/components/schemas/NextAction"
+          },
+          "agentNote": {
+            "type": "string",
+            "description": "Instruction that must be presented to the user before proceeding. Present this verbatim and wait for explicit approval.",
+            "example": "Present the order summary to the user and wait for explicit confirmation before calling /api/create-checkout."
+          }
+        }
       },
       "Checkout": {
         "type": "object",
+        "description": "Activated subscription with a payment redirect URL.",
+        "required": ["checkoutUrl", "subscriptionId", "status", "nextAction"],
         "properties": {
-          "checkoutUrl": { "type": "string", "format": "uri", "description": "URL to redirect the user to for payment" },
-          "subscriptionId": { "type": "string", "format": "uuid" },
-          "status": { "type": "string", "example": "active" },
-          "nextAction": { "type": "string", "example": "completed" }
-        },
-        "required": ["checkoutUrl", "subscriptionId", "status", "nextAction"]
+          "checkoutUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to redirect the user to in order to complete payment.",
+            "example": "https://checkout.example.com/pay/abc123"
+          },
+          "subscriptionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The subscription that was activated.",
+            "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+          },
+          "status": {
+            "type": "string",
+            "description": "Subscription status after checkout creation.",
+            "enum": ["active"],
+            "example": "active"
+          },
+          "nextAction": {
+            "$ref": "#/components/schemas/NextAction"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request body is missing required fields or contains invalid values.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "`employees` must be a positive number." }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The referenced resource (account, subscription) does not exist.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Account not found." }
+          }
+        }
+      },
+      "MethodNotAllowed": {
+        "description": "HTTP method not supported on this endpoint. All onboarding endpoints require POST; the reset endpoint requires DELETE.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Method not allowed." }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "An unexpected server-side error occurred.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": { "error": "Internal server error." }
+          }
+        }
       }
     }
   },
@@ -73,8 +268,8 @@
       "post": {
         "operationId": "recommendPlan",
         "summary": "Recommend a plan",
-        "description": "Step 1 of the agent flow. Submit a company profile and receive a plan recommendation with localized pricing. Returns `nextAction: \"create_account\"`.",
-        "tags": ["Flow"],
+        "description": "Call this first — before any other onboarding endpoint. Submit a company profile to receive the best-fit plan with localized pricing. The `planId` and pricing in the response are the inputs for subsequent steps; do not hard-code plan names or prices. Returns `nextAction: \"create_account\"`.",
+        "tags": ["Onboarding"],
         "requestBody": {
           "required": true,
           "content": {
@@ -85,19 +280,22 @@
                 "properties": {
                   "country": {
                     "type": "string",
-                    "description": "ISO 3166-1 alpha-2 country code. Used for currency localisation.",
+                    "description": "ISO 3166-1 alpha-2 country code. Determines the response currency. Defaults to USD if omitted or unrecognised.",
+                    "minLength": 2,
+                    "maxLength": 2,
                     "example": "CR"
                   },
                   "employees": {
                     "type": "integer",
                     "minimum": 1,
-                    "description": "Total number of employees who will use the platform.",
+                    "description": "Number of employees who will use the platform. Determines the minimum eligible plan tier.",
                     "example": 15
                   },
                   "needsSSO": {
                     "type": "boolean",
                     "default": false,
-                    "description": "Whether the team requires Single Sign-On (SSO). Forces Enterprise plan."
+                    "description": "Whether Single Sign-On (SSO) is required. When `true`, the Enterprise plan is always recommended regardless of employee count.",
+                    "example": true
                   }
                 }
               },
@@ -107,7 +305,7 @@
         },
         "responses": {
           "200": {
-            "description": "Plan recommendation",
+            "description": "Plan recommendation with localized pricing.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/PlanRecommendation" },
@@ -117,13 +315,18 @@
                   "price": 149900,
                   "currency": "CRC",
                   "billingCycle": "monthly",
-                  "reasons": ["SSO required — only Enterprise supports SSO", "15 employees exceeds Starter limit of 10"],
+                  "reasons": [
+                    "SSO required — only Enterprise supports SSO",
+                    "15 employees exceeds Starter limit of 10"
+                  ],
                   "nextAction": "create_account"
                 }
               }
             }
           },
-          "400": { "description": "Invalid input", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
       }
     },
@@ -131,8 +334,8 @@
       "post": {
         "operationId": "createAccount",
         "summary": "Create an account",
-        "description": "Step 2 of the agent flow. Register a new user account. Returns an `accountId` and `nextAction: \"create_subscription\"`. Returns HTTP 409 if the email is already registered.",
-        "tags": ["Flow"],
+        "description": "Step 2. Register a new user account. Returns an `accountId` and `nextAction: \"create_subscription\"`. Returns HTTP 409 with the existing `accountId` if the email is already registered.",
+        "tags": ["Onboarding"],
         "requestBody": {
           "required": true,
           "content": {
@@ -141,9 +344,24 @@
                 "type": "object",
                 "required": ["email", "name", "company"],
                 "properties": {
-                  "email": { "type": "string", "format": "email", "example": "jane@acme.com" },
-                  "name": { "type": "string", "example": "Jane Smith" },
-                  "company": { "type": "string", "example": "Acme Corp" }
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Contact email address. Must be unique — used as the account identifier.",
+                    "example": "jane@acme.com"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Full name of the primary contact.",
+                    "minLength": 1,
+                    "example": "Jane Smith"
+                  },
+                  "company": {
+                    "type": "string",
+                    "description": "Company or organisation name.",
+                    "minLength": 1,
+                    "example": "Acme Corp"
+                  }
                 }
               }
             }
@@ -151,11 +369,47 @@
         },
         "responses": {
           "201": {
-            "description": "Account created",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Account" } } }
+            "description": "Account created successfully.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Account" },
+                "example": {
+                  "accountId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "email": "jane@acme.com",
+                  "company": "Acme Corp",
+                  "createdAt": "2026-07-05T14:00:00.000Z",
+                  "nextAction": "create_subscription"
+                }
+              }
+            }
           },
-          "400": { "description": "Missing required fields", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "409": { "description": "Email already registered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" },
+          "409": {
+            "description": "An account with this email already exists. The existing `accountId` is returned so the caller can continue the flow without creating a duplicate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/Error" },
+                    {
+                      "type": "object",
+                      "required": ["accountId"],
+                      "properties": {
+                        "accountId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "ID of the existing account. Use this to proceed to `/api/create-subscription`.",
+                          "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
       }
     },
@@ -163,8 +417,8 @@
       "post": {
         "operationId": "createSubscription",
         "summary": "Create a subscription",
-        "description": "Step 3 of the agent flow. Link an account to a plan. Returns a `subscriptionId`, order summary, and `nextAction: \"confirm_checkout\"`. **The agent must present the returned order summary to the user and wait for explicit confirmation before proceeding to /api/create-checkout.**",
-        "tags": ["Flow"],
+        "description": "Step 3. Link an account to a plan. Returns a `subscriptionId`, full order summary, and `nextAction: \"confirm_checkout\"`. **The caller must present the order summary to the user and obtain explicit confirmation before calling `/api/create-checkout`.**",
+        "tags": ["Onboarding"],
         "requestBody": {
           "required": true,
           "content": {
@@ -173,8 +427,15 @@
                 "type": "object",
                 "required": ["accountId", "planId"],
                 "properties": {
-                  "accountId": { "type": "string", "format": "uuid", "description": "ID returned by /api/create-account" },
-                  "planId": { "type": "string", "enum": ["starter", "pro", "enterprise"], "description": "Plan ID returned by /api/recommend-plan" }
+                  "accountId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Account ID returned by `/api/create-account`.",
+                    "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  },
+                  "planId": {
+                    "$ref": "#/components/schemas/PlanId"
+                  }
                 }
               }
             }
@@ -182,12 +443,55 @@
         },
         "responses": {
           "201": {
-            "description": "Subscription created — agent must pause for user confirmation",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Subscription" } } }
+            "description": "Subscription created in `pending` state. Present the order summary to the user before proceeding.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Subscription" },
+                "example": {
+                  "subscriptionId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                  "accountId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "plan": "Enterprise",
+                  "price": 14900,
+                  "currency": "USD",
+                  "billingCycle": "monthly",
+                  "status": "pending",
+                  "nextAction": "confirm_checkout",
+                  "agentNote": "Present the order summary to the user and wait for explicit confirmation before calling /api/create-checkout."
+                }
+              }
+            }
           },
-          "400": { "description": "Missing or invalid fields", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "404": { "description": "Account not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "409": { "description": "Pending subscription already exists", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" },
+          "409": {
+            "description": "A pending subscription already exists for this account. The existing `subscriptionId` is returned so the caller can proceed directly to confirmation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/Error" },
+                    {
+                      "type": "object",
+                      "required": ["subscriptionId", "nextAction"],
+                      "properties": {
+                        "subscriptionId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "ID of the existing pending subscription.",
+                          "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                        },
+                        "nextAction": {
+                          "$ref": "#/components/schemas/NextAction"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
       }
     },
@@ -195,8 +499,8 @@
       "post": {
         "operationId": "createCheckout",
         "summary": "Create checkout",
-        "description": "Step 5 of the agent flow (after human confirmation). Activates the subscription and returns a payment URL. **Requires `confirmed: true` — the agent must not set this flag until the user has explicitly approved the order.** This is a legal safeguard and must not be bypassed.",
-        "tags": ["Flow"],
+        "description": "Step 5 (after user confirmation). Activates the subscription and returns a payment URL. **`confirmed` must be `true`. This flag must not be set until the user has explicitly approved the order summary returned by `/api/create-subscription`. Setting it without user consent is not permitted.**",
+        "tags": ["Onboarding"],
         "requestBody": {
           "required": true,
           "content": {
@@ -205,11 +509,17 @@
                 "type": "object",
                 "required": ["subscriptionId", "confirmed"],
                 "properties": {
-                  "subscriptionId": { "type": "string", "format": "uuid", "description": "ID returned by /api/create-subscription" },
+                  "subscriptionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Subscription ID returned by `/api/create-subscription`.",
+                    "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                  },
                   "confirmed": {
                     "type": "boolean",
                     "enum": [true],
-                    "description": "Must be `true`. Set only after the user has explicitly confirmed the order summary. Never infer or assume confirmation."
+                    "description": "Must be `true`. Set only after the user has explicitly confirmed the order summary. Do not infer or assume confirmation.",
+                    "example": true
                   }
                 }
               }
@@ -218,20 +528,78 @@
         },
         "responses": {
           "200": {
-            "description": "Checkout created — redirect user to checkoutUrl",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Checkout" } } }
+            "description": "Checkout created. Redirect the user to `checkoutUrl` to complete payment.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Checkout" },
+                "example": {
+                  "checkoutUrl": "https://checkout.example.com/pay/abc123",
+                  "subscriptionId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+                  "status": "active",
+                  "nextAction": "completed"
+                }
+              }
+            }
           },
-          "400": { "description": "Missing confirmation or invalid input", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "404": { "description": "Subscription not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
-          "409": { "description": "Checkout already exists for this subscription", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" },
+          "409": {
+            "description": "A checkout already exists for this subscription. The existing `checkoutUrl` is returned.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/Error" },
+                    {
+                      "type": "object",
+                      "required": ["checkoutUrl"],
+                      "properties": {
+                        "checkoutUrl": {
+                          "type": "string",
+                          "format": "uri",
+                          "description": "URL of the existing checkout session.",
+                          "example": "https://checkout.example.com/pay/abc123"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
+    "/api/reset": {
+      "delete": {
+        "operationId": "resetData",
+        "summary": "Reset all data",
+        "description": "Call before each test run or demo session to start from a clean state. Wipes all accounts, subscriptions, and checkouts from the in-memory store. Do not call during an active onboarding flow — all in-progress data will be lost. Intended for development and demo use only.",
+        "tags": ["Utility"],
+        "responses": {
+          "200": {
+            "description": "All data cleared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["message"],
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "All data cleared."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": { "$ref": "#/components/responses/MethodNotAllowed" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
         }
       }
     }
-  },
-  "tags": [
-    {
-      "name": "Flow",
-      "description": "Sequential agent flow: recommend-plan → create-account → create-subscription → (human confirmation) → create-checkout"
-    }
-  ]
+  }
 }

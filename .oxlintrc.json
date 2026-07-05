@@ -4,5 +4,13 @@
   "rules": {
     "react/rules-of-hooks": "error",
     "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+  },
+  "overrides": [
+    {
+      "files": ["api/**"],
+      "rules": {
+        "files/no-unused-files": "off"
+      }
+    }
+  ]
 }
