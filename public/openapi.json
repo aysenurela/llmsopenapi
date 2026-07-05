@@ -1,0 +1,237 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Acme SaaS API",
+    "version": "1.0.0",
+    "description": "AI-agent-ready SaaS API. Agents should start by reading /llms.txt, then follow the `nextAction` field in each response to advance through the plan recommendation → account creation → subscription → checkout funnel."
+  },
+  "servers": [
+    { "url": "http://localhost:5173", "description": "Local dev" }
+  ],
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "description": "Human-readable error message" }
+        },
+        "required": ["error"]
+      },
+      "PlanRecommendation": {
+        "type": "object",
+        "properties": {
+          "recommendedPlan": { "type": "string", "example": "Enterprise", "description": "Display name of the recommended plan" },
+          "planId": { "type": "string", "enum": ["starter", "pro", "enterprise"], "description": "Machine ID to pass to /api/create-subscription" },
+          "price": { "type": "integer", "description": "Price in minor currency units (e.g. cents for USD)" },
+          "currency": { "type": "string", "example": "USD", "description": "ISO 4217 currency code" },
+          "billingCycle": { "type": "string", "example": "monthly" },
+          "reasons": { "type": "array", "items": { "type": "string" }, "description": "Human-readable reasons for the recommendation" },
+          "nextAction": { "type": "string", "example": "create_account" }
+        },
+        "required": ["recommendedPlan", "planId", "price", "currency", "reasons", "nextAction"]
+      },
+      "Account": {
+        "type": "object",
+        "properties": {
+          "accountId": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "company": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "nextAction": { "type": "string", "example": "create_subscription" }
+        },
+        "required": ["accountId", "email", "company", "createdAt", "nextAction"]
+      },
+      "Subscription": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": { "type": "string", "format": "uuid" },
+          "accountId": { "type": "string", "format": "uuid" },
+          "plan": { "type": "string", "example": "Enterprise" },
+          "price": { "type": "integer" },
+          "currency": { "type": "string" },
+          "billingCycle": { "type": "string" },
+          "status": { "type": "string", "enum": ["pending", "active"] },
+          "nextAction": { "type": "string", "example": "confirm_checkout" },
+          "agentNote": { "type": "string", "description": "Instruction for the agent — must be shown to and confirmed by the user before proceeding" }
+        },
+        "required": ["subscriptionId", "accountId", "plan", "price", "currency", "status", "nextAction"]
+      },
+      "Checkout": {
+        "type": "object",
+        "properties": {
+          "checkoutUrl": { "type": "string", "format": "uri", "description": "URL to redirect the user to for payment" },
+          "subscriptionId": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "example": "active" },
+          "nextAction": { "type": "string", "example": "completed" }
+        },
+        "required": ["checkoutUrl", "subscriptionId", "status", "nextAction"]
+      }
+    }
+  },
+  "paths": {
+    "/api/recommend-plan": {
+      "post": {
+        "operationId": "recommendPlan",
+        "summary": "Recommend a plan",
+        "description": "Step 1 of the agent flow. Submit a company profile and receive a plan recommendation with localized pricing. Returns `nextAction: \"create_account\"`.",
+        "tags": ["Flow"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["employees"],
+                "properties": {
+                  "country": {
+                    "type": "string",
+                    "description": "ISO 3166-1 alpha-2 country code. Used for currency localisation.",
+                    "example": "CR"
+                  },
+                  "employees": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Total number of employees who will use the platform.",
+                    "example": 15
+                  },
+                  "needsSSO": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Whether the team requires Single Sign-On (SSO). Forces Enterprise plan."
+                  }
+                }
+              },
+              "example": { "country": "CR", "employees": 15, "needsSSO": true }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plan recommendation",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PlanRecommendation" },
+                "example": {
+                  "recommendedPlan": "Enterprise",
+                  "planId": "enterprise",
+                  "price": 149900,
+                  "currency": "CRC",
+                  "billingCycle": "monthly",
+                  "reasons": ["SSO required — only Enterprise supports SSO", "15 employees exceeds Starter limit of 10"],
+                  "nextAction": "create_account"
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid input", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/create-account": {
+      "post": {
+        "operationId": "createAccount",
+        "summary": "Create an account",
+        "description": "Step 2 of the agent flow. Register a new user account. Returns an `accountId` and `nextAction: \"create_subscription\"`. Returns HTTP 409 if the email is already registered.",
+        "tags": ["Flow"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "name", "company"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "jane@acme.com" },
+                  "name": { "type": "string", "example": "Jane Smith" },
+                  "company": { "type": "string", "example": "Acme Corp" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Account" } } }
+          },
+          "400": { "description": "Missing required fields", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Email already registered", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/create-subscription": {
+      "post": {
+        "operationId": "createSubscription",
+        "summary": "Create a subscription",
+        "description": "Step 3 of the agent flow. Link an account to a plan. Returns a `subscriptionId`, order summary, and `nextAction: \"confirm_checkout\"`. **The agent must present the returned order summary to the user and wait for explicit confirmation before proceeding to /api/create-checkout.**",
+        "tags": ["Flow"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["accountId", "planId"],
+                "properties": {
+                  "accountId": { "type": "string", "format": "uuid", "description": "ID returned by /api/create-account" },
+                  "planId": { "type": "string", "enum": ["starter", "pro", "enterprise"], "description": "Plan ID returned by /api/recommend-plan" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Subscription created — agent must pause for user confirmation",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Subscription" } } }
+          },
+          "400": { "description": "Missing or invalid fields", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Account not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Pending subscription already exists", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/create-checkout": {
+      "post": {
+        "operationId": "createCheckout",
+        "summary": "Create checkout",
+        "description": "Step 5 of the agent flow (after human confirmation). Activates the subscription and returns a payment URL. **Requires `confirmed: true` — the agent must not set this flag until the user has explicitly approved the order.** This is a legal safeguard and must not be bypassed.",
+        "tags": ["Flow"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["subscriptionId", "confirmed"],
+                "properties": {
+                  "subscriptionId": { "type": "string", "format": "uuid", "description": "ID returned by /api/create-subscription" },
+                  "confirmed": {
+                    "type": "boolean",
+                    "enum": [true],
+                    "description": "Must be `true`. Set only after the user has explicitly confirmed the order summary. Never infer or assume confirmation."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout created — redirect user to checkoutUrl",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Checkout" } } }
+          },
+          "400": { "description": "Missing confirmation or invalid input", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Subscription not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Checkout already exists for this subscription", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Flow",
+      "description": "Sequential agent flow: recommend-plan → create-account → create-subscription → (human confirmation) → create-checkout"
+    }
+  ]
+}
