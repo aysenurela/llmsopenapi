@@ -59,9 +59,12 @@ Claude Code will make real curl requests to production and show every step.
 
 **Reset before starting**
 ```bash
-curl -s -X DELETE https://llmsopenapi.vercel.app/api/reset | jq
+curl -s -X DELETE https://llmsopenapi.vercel.app/api/reset \
+  -H "x-reset-token: YOUR_RESET_SECRET" | jq
 ```
 Expected: `{ "message": "All data cleared." }`
+
+> `RESET_SECRET` is set as a Vercel env var. Without it the endpoint returns `401 Unauthorized`.
 
 ---
 
@@ -140,3 +143,4 @@ Expected: `status: "active"`, `nextAction: "completed"`, `checkoutUrl: "https://
 | Any step returns `500` | Redis env vars missing in Vercel | Check Upstash integration in Vercel dashboard → Storage |
 | CORS error in browser | Headers not deployed | Verify `vercel.json` has the `headers` block and redeploy |
 | `curl` returns HTML | Wrong URL or Vercel routing issue | Check rewrite rules in `vercel.json` |
+| Reset returns `401` | Missing or wrong token | Pass `-H "x-reset-token: YOUR_RESET_SECRET"` |

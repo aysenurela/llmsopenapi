@@ -180,6 +180,11 @@ async function handleCreateCheckout(req, res) {
 }
 
 async function handleReset(req, res) {
+  const secret = process.env.RESET_SECRET
+  if (secret && req.headers['x-reset-token'] !== secret) {
+    return send(res, 401, { error: 'Unauthorized.' })
+  }
+
   const keys = await redis.keys('*')
   if (keys.length > 0) await redis.del(...keys)
   send(res, 200, { message: 'All data cleared.' })
