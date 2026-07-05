@@ -190,6 +190,8 @@ const ROUTES = {
 }
 
 export default function handler(req, res) {
+  if (req.method === 'OPTIONS') return res.status(200).end()
+
   const path = (req.url ?? '').split('?')[0]
   const route = ROUTES[path]
 

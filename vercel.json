@@ -1,6 +1,22 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    },
+    {
+      "source": "/(openapi.json|llms.txt)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ],
   "rewrites": [
     { "source": "/features", "destination": "/features.html" },
     { "source": "/api/:path*", "destination": "/api/[...route]" }
