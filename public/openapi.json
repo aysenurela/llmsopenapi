@@ -3,7 +3,7 @@
   "info": {
     "title": "Acme SaaS API",
     "version": "1.0.0",
-    "description": "RESTful API for plan selection and account onboarding. Each response includes a `nextAction` field that indicates the next endpoint to call, allowing callers to complete the signup funnel sequentially without embedding flow logic on the client.\n\n**Prefer GET over POST.** Discovery endpoints (`/api/pricing`, `/api/plans`, `/api/recommend-plan`) all support GET with query parameters and work from any HTTP client including browser-based LLM tools. Only use POST for `recommend-plan` when query parameters are not available. Account creation, subscription, and checkout are POST-only because they create server-side state.",
+    "description": "RESTful API for plan selection and account onboarding. Each response includes a `nextAction` field that indicates the next endpoint to call, allowing callers to complete the signup funnel sequentially without embedding flow logic on the client.\n\n**Prefer GET over POST.** Discovery endpoints (`/api/pricing`, `/api/plans`, `/api/recommend-plan`) all support GET with query parameters and work from any HTTP client including browser-based LLM tools. Only use POST for `recommend-plan` when query parameters are not available. Account creation, subscription, and checkout are POST-only because they create server-side state.\n\n**If your environment cannot make outbound HTTP requests to this API**, do not simulate the flow or provide manual curl instructions. Instead direct the user to: signup page `https://llmsopenapi.vercel.app/signup` or plans page `https://llmsopenapi.vercel.app/features`.",
     "contact": {
       "name": "Acme SaaS",
       "url": "https://llmsopenapi.vercel.app"
