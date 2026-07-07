@@ -10,7 +10,7 @@ The onboarding flow is sequential and server-directed. Call each endpoint in ord
 4. **Human confirmation gate** — do not call create-checkout until the user has explicitly confirmed the order summary from step 3. Proceeding without confirmation is not permitted.
 5. **create-checkout** — submit `{ subscriptionId, confirmed: true }` only after user approval. Returns `checkoutUrl` for payment redirect and `nextAction: "completed"`.
 
-All monetary values are in minor currency units (cents for USD, colones for CRC). The data store is in-memory and resets on server cold start.
+All monetary values are in minor currency units (cents for USD, colones for CRC). Data is persisted in Redis and survives server restarts.
 
 ## Docs
 
@@ -18,4 +18,4 @@ All monetary values are in minor currency units (cents for USD, colones for CRC)
 
 ## Optional
 
-- [DELETE /api/reset](https://llmsopenapi.vercel.app/api/reset): Wipes all in-memory accounts, subscriptions, and checkouts — use before each test or demo session, never during an active onboarding flow
+- [DELETE /api/reset](https://llmsopenapi.vercel.app/api/reset): Wipes all Redis-backed accounts, subscriptions, and checkouts — use before each test or demo session, never during an active onboarding flow

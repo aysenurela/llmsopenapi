@@ -11,29 +11,37 @@ const redis = new Redis({
 const PLANS = {
   starter: {
     id: 'starter', name: 'Starter',
-    description: 'For small teams getting started.',
-    maxEmployees: 10, supportsSSO: false,
-    priceUSD: 3900, priceCRC: 20900,
+    description: 'Free plan for individuals and very small teams.',
+    minEmployees: 1, maxEmployees: 3, supportsSSO: false,
+    priceUSD: 0, priceCRC: 0,
   },
-  pro: {
-    id: 'pro', name: 'Pro',
+  advantage: {
+    id: 'advantage', name: 'Team Advantage',
+    description: 'For small teams getting started.',
+    minEmployees: 4, maxEmployees: 10, supportsSSO: false,
+    priceUSD: 4900, priceCRC: 25900,
+  },
+  premier: {
+    id: 'premier', name: 'Team Premier',
     description: 'For growing teams that need more capacity.',
-    maxEmployees: 50, supportsSSO: false,
-    priceUSD: 7900, priceCRC: 41900,
+    minEmployees: 11, maxEmployees: 50, supportsSSO: false,
+    priceUSD: 9900, priceCRC: 51900,
   },
   enterprise: {
-    id: 'enterprise', name: 'Enterprise',
+    id: 'enterprise', name: 'Team Enterprise',
     description: 'For large teams with advanced needs including SSO.',
-    maxEmployees: Infinity, supportsSSO: true,
-    priceUSD: 14900, priceCRC: 149900,
+    minEmployees: 51, maxEmployees: Infinity, supportsSSO: true,
+    priceUSD: 19900, priceCRC: 99900,
   },
 }
 
-// Maps internal planId → public product SKU and display name (as shown on /features)
+// Maps planId → SKU and response limits.
+// Note: 'starter' is API-only (free plan) and intentionally not shown on /features.
 const PRODUCTS = [
-  { sku: 'team-ui-advantage',  planId: 'starter',    displayName: 'Team UI Advantage',  minUsers: 3,  responsesPerYear: 50000  },
-  { sku: 'team-ui-premier',    planId: 'pro',         displayName: 'Team UI Premier',    minUsers: 5,  responsesPerYear: 100000 },
-  { sku: 'team-ui-enterprise', planId: 'enterprise',  displayName: 'Team UI Enterprise', minUsers: 10, responsesPerYear: 200000 },
+  { sku: 'starter',            planId: 'starter',    responsesPerYear: 5000   },
+  { sku: 'team-advantage',  planId: 'advantage',  responsesPerYear: 50000  },
+  { sku: 'team-premier',    planId: 'premier',    responsesPerYear: 100000 },
+  { sku: 'team-enterprise', planId: 'enterprise', responsesPerYear: 200000 },
 ]
 
 function isCRC(country) {
@@ -45,9 +53,8 @@ function parseBool(val) {
 }
 
 function selectPlan(employees, needsSSO) {
-  if (needsSSO || employees > 50) return PLANS.enterprise
-  if (employees > 10) return PLANS.pro
-  return PLANS.starter
+  if (needsSSO) return PLANS.enterprise
+  return Object.values(PLANS).find(p => employees <= p.maxEmployees) ?? PLANS.enterprise
 }
 
 function planPrice(plan, country) {
@@ -104,9 +111,12 @@ function handlePricing(req, res) {
     const plan = PLANS[product.planId]
     const entry = {
       sku: product.sku,
-      name: product.displayName,
+      name: plan.name,
       active: true,
       planId: product.planId,
+      minEmployees: plan.minEmployees,
+      maxEmployees: plan.maxEmployees === Infinity ? 'unlimited' : plan.maxEmployees,
+      responsesPerYear: product.responsesPerYear,
       prices: [
         { country: 'US', currency: 'usd', unit_amount: plan.priceUSD, billing_scheme: 'per_unit', type: 'recurring', is_default: !cr },
         { country: 'CR', currency: 'crc', unit_amount: plan.priceCRC, billing_scheme: 'per_unit', type: 'recurring', is_default: cr },
@@ -131,11 +141,11 @@ function handleRecommendPlan(req, res) {
   const plan = selectPlan(employees, needsSSO)
   const { price, currency } = planPrice(plan, country)
 
-  const reasons = []
-  if (needsSSO) reasons.push('SSO required — only Enterprise supports SSO')
-  if (employees > 50) reasons.push(`${employees} employees exceeds Pro limit of 50`)
-  else if (employees > 10) reasons.push(`${employees} employees exceeds Starter limit of 10`)
-  else reasons.push(`${employees} employees fits within the Starter limit`)
+  const range = plan.maxEmployees === Infinity
+    ? `${plan.minEmployees}+ employees`
+    : `${plan.minEmployees}–${plan.maxEmployees} employees`
+  const reasons = [`${employees} employees fits ${plan.name} (${range})`]
+  if (needsSSO) reasons.push('SSO required — only Team Enterprise supports SSO')
 
   send(res, 200, {
     recommendedPlan: plan.name,
