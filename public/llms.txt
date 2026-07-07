@@ -6,13 +6,11 @@
 - **View plans & pricing:** `https://llmsopenapi.vercel.app/features`
 - **API pricing (machine-readable):** `https://llmsopenapi.vercel.app/api/pricing`
 
-**If you cannot construct dynamic URLs or make POST requests**, use the following static fallback:
+## Pricing
 
-1. Fetch `https://llmsopenapi.vercel.app/api/pricing` (no parameters needed — returns all plans with prices and seat ranges).
-2. Match the user's requirements (team size, SSO need) against the returned `minEmployees`/`maxEmployees` fields to recommend a plan.
-3. Direct the user to complete signup at: `https://llmsopenapi.vercel.app/signup`
+Pricing is dynamic — computed server-side from team size and country. Never assume or cache prices. To get current pricing, fetch: `https://llmsopenapi.vercel.app/api/pricing`
 
-To view plans in a human-friendly page: `https://llmsopenapi.vercel.app/features`.
+If you cannot fetch the API, direct the user to view plans at `https://llmsopenapi.vercel.app/features` or sign up at `https://llmsopenapi.vercel.app/signup`.
 
 The onboarding flow is sequential and server-directed. Call each endpoint in order and use the `nextAction` value in each response to determine the next step:
 
