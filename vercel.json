@@ -19,6 +19,7 @@
   ],
   "rewrites": [
     { "source": "/features", "destination": "/features.html" },
+    { "source": "/signup", "destination": "/signup.html" },
     { "source": "/api/:path*", "destination": "/api/[...route]" }
   ]
 }

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <title>Sign Up — Acme SaaS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; background: #f8fafc; line-height: 1.6; }
+    a { color: inherit; text-decoration: none; }
+
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 40px; height: 60px; border-bottom: 1px solid #e2e8f0; background: #fff;
+    }
+    .nav-logo { font-weight: 700; font-size: 1.05rem; }
+    .nav-link { font-size: 0.875rem; color: #64748b; }
+    .nav-link:hover { color: #0f172a; }
+
+    .page { max-width: 480px; margin: 60px auto; padding: 0 24px; }
+    h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .subtitle { color: #64748b; margin-bottom: 32px; font-size: 0.95rem; }
+
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; }
+
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 18px; }
+    .field label { font-size: 0.85rem; font-weight: 500; color: #374151; }
+    .field input { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 0.95rem; outline: none; }
+    .field input:focus { border-color: #2563eb; }
+    .row { display: flex; gap: 14px; }
+    .row .field { flex: 1; }
+
+    .sso { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
+    .sso input { width: 15px; height: 15px; }
+    .sso label { font-size: 0.875rem; color: #374151; }
+
+    .btn { width: 100%; padding: 11px; border-radius: 8px; font-size: 0.95rem; font-weight: 600; background: #2563eb; color: #fff; border: none; cursor: pointer; }
+    .btn:hover { background: #1d4ed8; }
+
+    .footer-note { text-align: center; margin-top: 16px; font-size: 0.8rem; color: #94a3b8; }
+    .footer-note a { color: #64748b; text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="/" class="nav-logo">Acme SaaS</a>
+    <a href="/features" class="nav-link">View plans</a>
+  </nav>
+
+  <div class="page">
+    <h1>Create your account</h1>
+    <p class="subtitle">Get started in minutes.</p>
+
+    <div class="card">
+      <div class="row">
+        <div class="field"><label for="name">Name</label><input id="name" type="text" placeholder="Jane Smith" /></div>
+        <div class="field"><label for="company">Company</label><input id="company" type="text" placeholder="Acme Inc." /></div>
+      </div>
+      <div class="field"><label for="email">Work email</label><input id="email" type="email" placeholder="jane@company.com" /></div>
+      <div class="row">
+        <div class="field"><label for="country">Country</label><input id="country" type="text" placeholder="US" maxlength="3" /></div>
+        <div class="field"><label for="employees">Team size</label><input id="employees" type="number" min="1" placeholder="10" /></div>
+      </div>
+      <div class="sso">
+        <input type="checkbox" id="sso" />
+        <label for="sso">We need Single Sign-On (SSO)</label>
+      </div>
+      <button class="btn">Get started →</button>
+    </div>
+
+    <p class="footer-note">Already have an account? <a href="#">Sign in</a></p>
+  </div>
+
+</body>
+</html>

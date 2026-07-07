@@ -89,10 +89,13 @@ export default function App() {
       <header className="header">
         <div className="header-inner">
           <div>
-            <h1>Acme SaaS</h1>
-            <p>Get started with your plan</p>
+            <h1>Plans</h1>
+            <p>Choose the right plan for your team</p>
           </div>
-          <button className="reset-btn" onClick={handleReset}>↺ Reset Data</button>
+          <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+            <a href="/signup" style={{padding:'8px 18px',borderRadius:'7px',fontSize:'0.875rem',fontWeight:500,background:'#2563eb',color:'#fff',textDecoration:'none'}}>Sign up</a>
+            <button className="reset-btn" onClick={handleReset}>↺ Reset Data</button>
+          </div>
         </div>
       </header>
 

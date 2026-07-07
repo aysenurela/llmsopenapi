@@ -42,27 +42,58 @@ function planPrice(plan, country) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
+const BASE_URL = 'https://llmsopenapi.vercel.app'
+
+const HELPFUL_LINKS = {
+  plansUrl: `${BASE_URL}/features`,
+  signupUrl: `${BASE_URL}/features`,
+}
+
 function send(res, status, body) {
-  res.status(status).json(body)
+  const payload = status >= 400 ? { ...body, ...HELPFUL_LINKS } : body
+  res.status(status).json(payload)
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────
 
-function handleRecommendPlan(req, res) {
-  const { country, employees, needsSSO } = req.body ?? {}
+function handleListPlans(req, res) {
+  const { country } = req.query ?? {}
+  const plans = Object.values(PLANS).map(plan => {
+    const { price, currency } = planPrice(plan, country)
+    return {
+      planId: plan.id,
+      name: plan.name,
+      description: plan.description,
+      maxEmployees: plan.maxEmployees === Infinity ? 'unlimited' : plan.maxEmployees,
+      supportsSSO: plan.supportsSSO,
+      price, currency,
+      billingCycle: 'monthly',
+    }
+  })
+  send(res, 200, {
+    plans,
+    signupUrl: `${BASE_URL}/features`,
+  })
+}
 
-  if (typeof employees !== 'number' || employees < 1) {
+function handleRecommendPlan(req, res) {
+  const source = req.method === 'GET' ? req.query : (req.body ?? {})
+  const country = source.country
+  const needsSSO = source.needsSSO === true || source.needsSSO === 'true'
+  const employees = req.method === 'GET' ? Number(source.employees) : source.employees
+
+  if (!employees || typeof employees !== 'number' || employees < 1) {
     return send(res, 400, { error: '`employees` must be a positive number.' })
   }
 
-  const plan = selectPlan(employees, !!needsSSO)
+  const plan = selectPlan(employees, needsSSO)
   const { price, currency } = planPrice(plan, country)
 
   const reasons = []
   if (needsSSO) reasons.push('SSO required — only Enterprise supports SSO')
   if (employees > 50) reasons.push(`${employees} employees exceeds Pro limit of 50`)
   else if (employees > 10) reasons.push(`${employees} employees exceeds Starter limit of 10`)
-  else reasons.push(`${employees} employees fits within Starter limit`)
+  else reasons.push(`${employees} employees fits within the Starter limit`)
 
   send(res, 200, {
     recommendedPlan: plan.name,
@@ -70,6 +101,7 @@ function handleRecommendPlan(req, res) {
     price, currency,
     billingCycle: 'monthly',
     reasons,
+    signupUrl: `${BASE_URL}/features`,
     nextAction: 'create_account',
   })
 }
@@ -193,7 +225,8 @@ async function handleReset(req, res) {
 // ── Router ────────────────────────────────────────────────────────────────
 
 const ROUTES = {
-  '/api/recommend-plan':       { POST: handleRecommendPlan },
+  '/api/plans':                { GET: handleListPlans },
+  '/api/recommend-plan':       { GET: handleRecommendPlan, POST: handleRecommendPlan },
   '/api/create-account':       { POST: handleCreateAccount },
   '/api/create-subscription':  { POST: handleCreateSubscription },
   '/api/create-checkout':      { POST: handleCreateCheckout },
