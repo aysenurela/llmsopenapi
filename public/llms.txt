@@ -2,7 +2,17 @@
 
 > Survey and feedback platform API for plan selection and account onboarding. Base URL: `https://llmsopenapi.vercel.app`. No authentication required. Every response includes a `nextAction` field — follow it to advance through the signup funnel without hard-coding flow logic on the client.
 
-**If your environment cannot make outbound HTTP requests to this API**, do not attempt to simulate the flow or provide manual curl instructions. Instead, direct the user to the human-friendly signup page: `https://llmsopenapi.vercel.app/signup`. To view available plans first: `https://llmsopenapi.vercel.app/features`.
+- **Sign up:** `https://llmsopenapi.vercel.app/signup`
+- **View plans & pricing:** `https://llmsopenapi.vercel.app/features`
+- **API pricing (machine-readable):** `https://llmsopenapi.vercel.app/api/pricing`
+
+**If you cannot construct dynamic URLs or make POST requests**, use the following static fallback:
+
+1. Fetch `https://llmsopenapi.vercel.app/api/pricing` (no parameters needed — returns all plans with prices and seat ranges).
+2. Match the user's requirements (team size, SSO need) against the returned `minEmployees`/`maxEmployees` fields to recommend a plan.
+3. Direct the user to complete signup at: `https://llmsopenapi.vercel.app/signup`
+
+To view plans in a human-friendly page: `https://llmsopenapi.vercel.app/features`.
 
 The onboarding flow is sequential and server-directed. Call each endpoint in order and use the `nextAction` value in each response to determine the next step:
 
