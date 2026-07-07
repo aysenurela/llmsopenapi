@@ -39,6 +39,43 @@
         "description": "Machine-readable plan identifier. Use the value returned by `/api/recommend-plan` when calling `/api/create-subscription`.",
         "example": "enterprise"
       },
+      "HelpfulLinks": {
+        "type": "object",
+        "description": "Links included in every response to help users continue the signup flow.",
+        "properties": {
+          "plansUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the plans page.",
+            "example": "https://llmsopenapi.vercel.app/features"
+          },
+          "signupUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL of the signup form.",
+            "example": "https://llmsopenapi.vercel.app/signup"
+          }
+        }
+      },
+      "Plan": {
+        "type": "object",
+        "description": "A single available plan with pricing.",
+        "required": ["planId", "name", "description", "maxEmployees", "supportsSSO", "price", "currency", "billingCycle"],
+        "properties": {
+          "planId": { "$ref": "#/components/schemas/PlanId" },
+          "name": { "type": "string", "description": "Human-readable plan name.", "example": "Enterprise" },
+          "description": { "type": "string", "description": "Short description of the plan.", "example": "For large teams with advanced needs including SSO." },
+          "maxEmployees": {
+            "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "string", "enum": ["unlimited"] }],
+            "description": "Maximum number of employees. `\"unlimited\"` for Enterprise.",
+            "example": 10
+          },
+          "supportsSSO": { "type": "boolean", "description": "Whether SSO is available on this plan.", "example": false },
+          "price": { "type": "integer", "description": "Price in minor currency units.", "minimum": 0, "example": 3900 },
+          "currency": { "type": "string", "minLength": 3, "maxLength": 3, "description": "ISO 4217 currency code.", "example": "USD" },
+          "billingCycle": { "type": "string", "enum": ["monthly", "annual"], "example": "monthly" }
+        }
+      },
       "NextAction": {
         "type": "string",
         "enum": ["create_account", "create_subscription", "confirm_checkout", "completed"],
@@ -47,16 +84,22 @@
       },
       "Error": {
         "type": "object",
-        "description": "Standard error envelope returned on all 4xx and 5xx responses.",
+        "description": "Standard error envelope returned on all 4xx and 5xx responses. Always includes `plansUrl` and `signupUrl` so the caller can direct the user to continue.",
         "required": ["error"],
         "properties": {
           "error": {
             "type": "string",
             "description": "Human-readable description of what went wrong.",
             "example": "`employees` must be a positive number."
-          }
+          },
+          "plansUrl": { "type": "string", "format": "uri", "example": "https://llmsopenapi.vercel.app/features" },
+          "signupUrl": { "type": "string", "format": "uri", "example": "https://llmsopenapi.vercel.app/signup" }
         },
-        "example": { "error": "`employees` must be a positive number." }
+        "example": {
+          "error": "`employees` must be a positive number.",
+          "plansUrl": "https://llmsopenapi.vercel.app/features",
+          "signupUrl": "https://llmsopenapi.vercel.app/signup"
+        }
       },
       "PlanRecommendation": {
         "type": "object",
@@ -102,6 +145,18 @@
           },
           "nextAction": {
             "$ref": "#/components/schemas/NextAction"
+          },
+          "signupUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Direct link to the signup form to begin account creation.",
+            "example": "https://llmsopenapi.vercel.app/signup"
+          },
+          "plansUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Link to the plans page for human review.",
+            "example": "https://llmsopenapi.vercel.app/features"
           }
         }
       },
@@ -244,7 +299,7 @@
         }
       },
       "MethodNotAllowed": {
-        "description": "HTTP method not supported on this endpoint. All onboarding endpoints require POST; the reset endpoint requires DELETE.",
+        "description": "HTTP method not supported on this endpoint. `/api/plans` accepts GET; `/api/recommend-plan` accepts GET and POST; other onboarding endpoints require POST; the reset endpoint requires DELETE.",
         "content": {
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" },
@@ -264,7 +319,211 @@
     }
   },
   "paths": {
+    "/api/pricing": {
+      "get": {
+        "operationId": "getPricing",
+        "summary": "Get pricing for all products",
+        "description": "Returns the product catalogue with display names matching the /features page. Each product has a `prices` array with one entry per supported country. Pass `country` to flag the relevant price as `is_default: true`. Use `planId` from each product when calling `/api/create-subscription`.",
+        "tags": ["Onboarding"],
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "ISO country code (e.g. `CR`). Marks the matching price entry `is_default: true`.",
+            "example": "CR"
+          },
+          {
+            "name": "employees",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1 },
+            "description": "Number of employees. When provided alongside `needsSSO`, the matching product is flagged `is_recommended: true`.",
+            "example": 4
+          },
+          {
+            "name": "needsSSO",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean" },
+            "description": "Whether SSO is required. Used together with `employees` to flag the best-fit product.",
+            "example": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product catalogue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "products": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "sku":    { "type": "string", "example": "team-ui-advantage" },
+                          "name":   { "type": "string", "example": "Team UI Advantage" },
+                          "active": { "type": "boolean" },
+                          "planId":         { "$ref": "#/components/schemas/PlanId" },
+                          "is_recommended": { "type": "boolean", "description": "Present only when `employees` is passed. `true` on the product that best fits the given criteria." },
+                          "prices": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "country":        { "type": "string", "example": "US" },
+                                "currency":       { "type": "string", "example": "usd" },
+                                "unit_amount":    { "type": "integer", "description": "Price in minor currency units (cents)", "example": 3900 },
+                                "billing_scheme": { "type": "string", "example": "per_unit" },
+                                "type":           { "type": "string", "example": "recurring" },
+                                "is_default":     { "type": "boolean" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "plansUrl":  { "type": "string", "format": "uri" },
+                    "signupUrl": { "type": "string", "format": "uri" }
+                  }
+                },
+                "example": {
+                  "products": [
+                    {
+                      "sku": "team-ui-advantage", "name": "Team UI Advantage", "active": true, "planId": "starter",
+                      "prices": [
+                        { "country": "US", "currency": "usd", "unit_amount": 3900,  "billing_scheme": "per_unit", "type": "recurring", "is_default": true  },
+                        { "country": "CR", "currency": "crc", "unit_amount": 20900, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
+                      ]
+                    },
+                    {
+                      "sku": "team-ui-premier", "name": "Team UI Premier", "active": true, "planId": "pro",
+                      "prices": [
+                        { "country": "US", "currency": "usd", "unit_amount": 7900,  "billing_scheme": "per_unit", "type": "recurring", "is_default": true  },
+                        { "country": "CR", "currency": "crc", "unit_amount": 41900, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
+                      ]
+                    },
+                    {
+                      "sku": "team-ui-enterprise", "name": "Team UI Enterprise", "active": true, "planId": "enterprise",
+                      "prices": [
+                        { "country": "US", "currency": "usd", "unit_amount": 14900,  "billing_scheme": "per_unit", "type": "recurring", "is_default": true  },
+                        { "country": "CR", "currency": "crc", "unit_amount": 149900, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
+                      ]
+                    }
+                  ],
+                  "plansUrl":  "https://llmsopenapi.vercel.app/features",
+                  "signupUrl": "https://llmsopenapi.vercel.app/signup"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plans": {
+      "get": {
+        "operationId": "listPlans",
+        "summary": "List all plans",
+        "description": "Returns all available plans with pricing. Use this for discovery — e.g. showing a user their options before asking for company details. Pass `country` as a query parameter to get localised pricing. Includes `signupUrl` and `plansUrl` in the response.",
+        "tags": ["Onboarding"],
+        "parameters": [
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 2, "maxLength": 3, "example": "CR" },
+            "description": "ISO 3166-1 alpha-2 or alpha-3 country code. Determines response currency. Defaults to USD if omitted."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All available plans with pricing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["plans", "signupUrl", "plansUrl"],
+                  "properties": {
+                    "plans": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Plan" }
+                    },
+                    "signupUrl": { "type": "string", "format": "uri", "example": "https://llmsopenapi.vercel.app/signup" },
+                    "plansUrl": { "type": "string", "format": "uri", "example": "https://llmsopenapi.vercel.app/features" }
+                  }
+                },
+                "example": {
+                  "plans": [
+                    { "planId": "starter", "name": "Starter", "description": "For small teams getting started.", "maxEmployees": 10, "supportsSSO": false, "price": 3900, "currency": "USD", "billingCycle": "monthly" },
+                    { "planId": "pro", "name": "Pro", "description": "For growing teams that need more capacity.", "maxEmployees": 50, "supportsSSO": false, "price": 7900, "currency": "USD", "billingCycle": "monthly" },
+                    { "planId": "enterprise", "name": "Enterprise", "description": "For large teams with advanced needs including SSO.", "maxEmployees": "unlimited", "supportsSSO": true, "price": 14900, "currency": "USD", "billingCycle": "monthly" }
+                  ],
+                  "signupUrl": "https://llmsopenapi.vercel.app/signup",
+                  "plansUrl": "https://llmsopenapi.vercel.app/features"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
     "/api/recommend-plan": {
+      "get": {
+        "operationId": "recommendPlanGet",
+        "summary": "Recommend a plan (GET)",
+        "description": "Same logic as the POST variant but accepts query parameters instead of a request body. Use this from any LLM tool with GET-only browsing. Returns the best-fit plan with localized pricing and a `signupUrl` for the user to continue.",
+        "tags": ["Onboarding"],
+        "parameters": [
+          {
+            "name": "employees",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "integer", "minimum": 1, "example": 15 },
+            "description": "Number of employees who will use the platform."
+          },
+          {
+            "name": "country",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "minLength": 2, "maxLength": 3, "example": "CR" },
+            "description": "ISO 3166-1 country code. Determines response currency."
+          },
+          {
+            "name": "needsSSO",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "boolean", "default": false, "example": true },
+            "description": "Pass `true` if SSO is required. Forces Enterprise plan."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan recommendation with localized pricing and signup link.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PlanRecommendation" },
+                "example": {
+                  "recommendedPlan": "Enterprise",
+                  "planId": "enterprise",
+                  "price": 149900,
+                  "currency": "CRC",
+                  "billingCycle": "monthly",
+                  "reasons": ["SSO required — only Enterprise supports SSO"],
+                  "signupUrl": "https://llmsopenapi.vercel.app/signup",
+                  "plansUrl": "https://llmsopenapi.vercel.app/features",
+                  "nextAction": "create_account"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      },
       "post": {
         "operationId": "recommendPlan",
         "summary": "Recommend a plan",
@@ -319,6 +578,8 @@
                     "SSO required — only Enterprise supports SSO",
                     "15 employees exceeds Starter limit of 10"
                   ],
+                  "signupUrl": "https://llmsopenapi.vercel.app/signup",
+                  "plansUrl": "https://llmsopenapi.vercel.app/features",
                   "nextAction": "create_account"
                 }
               }

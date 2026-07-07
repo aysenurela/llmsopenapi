@@ -29,6 +29,21 @@ const PLANS = {
   },
 }
 
+// Maps internal planId → public product SKU and display name (as shown on /features)
+const PRODUCTS = [
+  { sku: 'team-ui-advantage',  planId: 'starter',    displayName: 'Team UI Advantage',  minUsers: 3,  responsesPerYear: 50000  },
+  { sku: 'team-ui-premier',    planId: 'pro',         displayName: 'Team UI Premier',    minUsers: 5,  responsesPerYear: 100000 },
+  { sku: 'team-ui-enterprise', planId: 'enterprise',  displayName: 'Team UI Enterprise', minUsers: 10, responsesPerYear: 200000 },
+]
+
+function isCRC(country) {
+  return !!country && ['CR', 'CRI', 'COSTA RICA'].includes(country.toUpperCase())
+}
+
+function parseBool(val) {
+  return val === true || val === 'true'
+}
+
 function selectPlan(employees, needsSSO) {
   if (needsSSO || employees > 50) return PLANS.enterprise
   if (employees > 10) return PLANS.pro
@@ -36,8 +51,9 @@ function selectPlan(employees, needsSSO) {
 }
 
 function planPrice(plan, country) {
-  const crc = country && ['CR', 'CRI', 'COSTA RICA'].includes(country.toUpperCase())
-  return crc ? { price: plan.priceCRC, currency: 'CRC' } : { price: plan.priceUSD, currency: 'USD' }
+  return isCRC(country)
+    ? { price: plan.priceCRC, currency: 'CRC' }
+    : { price: plan.priceUSD, currency: 'USD' }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -46,7 +62,7 @@ const BASE_URL = 'https://llmsopenapi.vercel.app'
 
 const HELPFUL_LINKS = {
   plansUrl: `${BASE_URL}/features`,
-  signupUrl: `${BASE_URL}/features`,
+  signupUrl: `${BASE_URL}/signup`,
 }
 
 function send(res, status, body) {
@@ -72,15 +88,41 @@ function handleListPlans(req, res) {
   })
   send(res, 200, {
     plans,
-    signupUrl: `${BASE_URL}/features`,
+    ...HELPFUL_LINKS,
   })
+}
+
+function handlePricing(req, res) {
+  const { country, employees: employeesRaw, needsSSO } = req.query ?? {}
+  const cr = isCRC(country)
+  const employees = employeesRaw ? Number(employeesRaw) : null
+  const recommendedPlanId = (employees !== null && !Number.isNaN(employees))
+    ? selectPlan(employees, parseBool(needsSSO)).id
+    : null
+
+  const products = PRODUCTS.map(product => {
+    const plan = PLANS[product.planId]
+    const entry = {
+      sku: product.sku,
+      name: product.displayName,
+      active: true,
+      planId: product.planId,
+      prices: [
+        { country: 'US', currency: 'usd', unit_amount: plan.priceUSD, billing_scheme: 'per_unit', type: 'recurring', is_default: !cr },
+        { country: 'CR', currency: 'crc', unit_amount: plan.priceCRC, billing_scheme: 'per_unit', type: 'recurring', is_default: cr },
+      ],
+    }
+    if (recommendedPlanId !== null) entry.is_recommended = product.planId === recommendedPlanId
+    return entry
+  })
+  send(res, 200, { products, ...HELPFUL_LINKS })
 }
 
 function handleRecommendPlan(req, res) {
   const source = req.method === 'GET' ? req.query : (req.body ?? {})
-  const country = source.country
-  const needsSSO = source.needsSSO === true || source.needsSSO === 'true'
-  const employees = req.method === 'GET' ? Number(source.employees) : source.employees
+  const { country } = source
+  const needsSSO = parseBool(source.needsSSO)
+  const employees = Number(source.employees)
 
   if (!employees || typeof employees !== 'number' || employees < 1) {
     return send(res, 400, { error: '`employees` must be a positive number.' })
@@ -101,7 +143,7 @@ function handleRecommendPlan(req, res) {
     price, currency,
     billingCycle: 'monthly',
     reasons,
-    signupUrl: `${BASE_URL}/features`,
+    ...HELPFUL_LINKS,
     nextAction: 'create_account',
   })
 }
@@ -225,6 +267,7 @@ async function handleReset(req, res) {
 // ── Router ────────────────────────────────────────────────────────────────
 
 const ROUTES = {
+  '/api/pricing':              { GET: handlePricing },
   '/api/plans':                { GET: handleListPlans },
   '/api/recommend-plan':       { GET: handleRecommendPlan, POST: handleRecommendPlan },
   '/api/create-account':       { POST: handleCreateAccount },
