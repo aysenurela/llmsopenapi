@@ -254,7 +254,7 @@ async function handleCreateCheckout(req, res) {
   }
 
   const checkoutId = randomUUID()
-  const checkoutUrl = `https://checkout.example.com/pay/${checkoutId}`
+  const checkoutUrl = `${BASE_URL}/signup?checkout=${checkoutId}`
   const checkout = { id: checkoutId, subscriptionId, url: checkoutUrl, createdAt: new Date().toISOString() }
 
   await redis.set(`sub:${subscriptionId}`, { ...sub, status: 'active' })
