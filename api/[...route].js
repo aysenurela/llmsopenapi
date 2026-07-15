@@ -145,7 +145,7 @@ function handlePricing(req, res) {
 }
 
 function handleRecommendPlan(req, res) {
-  const source = req.method === 'GET' ? req.query : (req.body ?? {})
+  const source = req.query
   const { country } = source
   const needsSSO = parseBool(source.needsSSO)
   const employees = Number(source.employees)
@@ -295,7 +295,7 @@ async function handleReset(req, res) {
 const ROUTES = {
   '/api/pricing':              { GET: handlePricing },
   '/api/plans':                { GET: handleListPlans },
-  '/api/recommend-plan':       { GET: handleRecommendPlan, POST: handleRecommendPlan },
+  '/api/recommend-plan':       { GET: handleRecommendPlan },
   '/api/create-account':       { POST: handleCreateAccount },
   '/api/create-subscription':  { POST: handleCreateSubscription },
   '/api/create-checkout':      { POST: handleCreateCheckout },
