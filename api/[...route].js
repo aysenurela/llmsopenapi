@@ -74,10 +74,26 @@ const HELPFUL_LINKS = {
 
 function send(res, status, body) {
   const payload = status >= 400 ? { ...body, ...HELPFUL_LINKS } : body
+  const path = (res.req?.url ?? '').split('?')[0]
+  redis.lpush('api:responses', JSON.stringify({
+    time: new Date().toISOString(),
+    method: res.req?.method,
+    path,
+    status,
+    body: payload,
+  })).catch(() => {})
   res.status(status).json(payload)
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────
+
+async function handleApiLog(req, res) {
+  const hits = await redis.lrange('api:hits', 0, 49)
+  const responses = (await redis.lrange('api:responses', 0, 49)).map(r =>
+    typeof r === 'string' ? JSON.parse(r) : r
+  )
+  res.status(200).json({ hits, responses })
+}
 
 function handleListPlans(req, res) {
   const { country } = req.query ?? {}
@@ -284,10 +300,13 @@ const ROUTES = {
   '/api/create-subscription':  { POST: handleCreateSubscription },
   '/api/create-checkout':      { POST: handleCreateCheckout },
   '/api/reset':                { DELETE: handleReset },
+  '/api/log':                  { GET: handleApiLog },
 }
 
 export default async function handler(req, res) {
+  console.log(`[API HIT] ${req.method} ${req.url}`)
   if (req.method === 'OPTIONS') return res.status(200).end()
+  await redis.lpush('api:hits', `${new Date().toISOString()} ${req.method} ${req.url}`)
 
   const path = (req.url ?? '').split('?')[0]
   const route = ROUTES[path]

@@ -63,16 +63,16 @@
         "required": ["planId", "name", "description", "minEmployees", "maxEmployees", "supportsSSO", "price", "currency", "billingCycle"],
         "properties": {
           "planId": { "$ref": "#/components/schemas/PlanId" },
-          "name": { "type": "string", "description": "Human-readable plan name.", "example": "Team Enterprise" },
-          "description": { "type": "string", "description": "Short description of the plan.", "example": "For large teams with advanced needs including SSO." },
-          "minEmployees": { "type": "integer", "minimum": 1, "description": "Minimum number of employees for this plan.", "example": 51 },
+          "name": { "type": "string", "description": "Human-readable plan name.", "example": "Example Standard" },
+          "description": { "type": "string", "description": "Short description of the plan.", "example": "For small teams getting started." },
+          "minEmployees": { "type": "integer", "minimum": 1, "description": "Minimum number of employees for this plan.", "example": 4 },
           "maxEmployees": {
             "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "string", "enum": ["unlimited"] }],
             "description": "Maximum number of employees. `\"unlimited\"` for Team Enterprise.",
             "example": 10
           },
           "supportsSSO": { "type": "boolean", "description": "Whether SSO is available on this plan.", "example": false },
-          "price": { "type": "integer", "description": "Price in minor currency units.", "minimum": 0, "example": 4900 },
+          "price": { "type": "integer", "description": "Price in minor currency units.", "minimum": 0, "example": 1000 },
           "currency": { "type": "string", "minLength": 3, "maxLength": 3, "description": "ISO 4217 currency code.", "example": "USD" },
           "billingCycle": { "type": "string", "enum": ["monthly", "annual"], "example": "monthly" }
         }
@@ -110,7 +110,7 @@
           "recommendedPlan": {
             "type": "string",
             "description": "Human-readable plan name.",
-            "example": "Team Enterprise"
+            "example": "Example Pro"
           },
           "planId": {
             "$ref": "#/components/schemas/PlanId"
@@ -119,14 +119,14 @@
             "type": "integer",
             "description": "Price in minor currency units (e.g. cents for USD, colones for CRC).",
             "minimum": 0,
-            "example": 99900
+            "example": 2000
           },
           "currency": {
             "type": "string",
             "description": "ISO 4217 currency code, derived from the `country` input.",
             "minLength": 3,
             "maxLength": 3,
-            "example": "CRC"
+            "example": "USD"
           },
           "billingCycle": {
             "type": "string",
@@ -140,8 +140,8 @@
             "items": { "type": "string" },
             "minItems": 1,
             "example": [
-              "15 employees fits Team Premier (11–50 employees)",
-              "SSO required — only Team Enterprise supports SSO"
+              "15 employees fits Example Pro (11–50 employees)",
+              "SSO required — only Example Max supports SSO"
             ]
           },
           "nextAction": {
@@ -214,13 +214,13 @@
           "plan": {
             "type": "string",
             "description": "Human-readable plan name.",
-            "example": "Team Enterprise"
+            "example": "Example Pro"
           },
           "price": {
             "type": "integer",
             "description": "Price in USD cents.",
             "minimum": 0,
-            "example": 19900
+            "example": 2000
           },
           "currency": {
             "type": "string",
@@ -366,7 +366,7 @@
                         "type": "object",
                         "properties": {
                           "sku":    { "type": "string", "example": "team-advantage" },
-                          "name":   { "type": "string", "example": "Team Advantage" },
+                          "name":   { "type": "string", "example": "Example Standard" },
                           "active": { "type": "boolean" },
                           "planId":           { "$ref": "#/components/schemas/PlanId" },
                           "minEmployees":     { "type": "integer", "description": "Minimum team size for this plan.", "example": 4 },
@@ -380,7 +380,7 @@
                               "properties": {
                                 "country":        { "type": "string", "example": "US" },
                                 "currency":       { "type": "string", "example": "usd" },
-                                "unit_amount":    { "type": "integer", "description": "Price in minor currency units (cents)", "example": 4900 },
+                                "unit_amount":    { "type": "integer", "description": "Price in minor currency units (cents)", "example": 1000 },
                                 "billing_scheme": { "type": "string", "example": "per_unit" },
                                 "type":           { "type": "string", "example": "recurring" },
                                 "is_default":     { "type": "boolean" }
@@ -397,31 +397,31 @@
                 "example": {
                   "products": [
                     {
-                      "sku": "starter", "name": "Starter", "active": true, "planId": "starter", "minEmployees": 1, "maxEmployees": 3, "responsesPerYear": 5000,
+                      "sku": "starter", "name": "Example Starter", "active": true, "planId": "starter", "minEmployees": 1, "maxEmployees": 3, "responsesPerYear": 5000,
                       "prices": [
-                        { "country": "US", "currency": "usd", "unit_amount": 0, "billing_scheme": "per_unit", "type": "recurring", "is_default": true  },
+                        { "country": "US", "currency": "usd", "unit_amount": 0, "billing_scheme": "per_unit", "type": "recurring", "is_default": true },
                         { "country": "CR", "currency": "crc", "unit_amount": 0, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
                       ]
                     },
                     {
-                      "sku": "team-advantage", "name": "Team Advantage", "active": true, "planId": "advantage", "minEmployees": 4, "maxEmployees": 10, "responsesPerYear": 50000,
+                      "sku": "team-advantage", "name": "Example Standard", "active": true, "planId": "advantage", "minEmployees": 4, "maxEmployees": 10, "responsesPerYear": 50000,
                       "prices": [
-                        { "country": "US", "currency": "usd", "unit_amount": 4900,  "billing_scheme": "per_unit", "type": "recurring", "is_default": true  },
-                        { "country": "CR", "currency": "crc", "unit_amount": 25900, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
+                        { "country": "US", "currency": "usd", "unit_amount": 1000, "billing_scheme": "per_unit", "type": "recurring", "is_default": true },
+                        { "country": "CR", "currency": "crc", "unit_amount": 5000, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
                       ]
                     },
                     {
-                      "sku": "team-premier", "name": "Team Premier", "active": true, "planId": "premier", "minEmployees": 11, "maxEmployees": 50, "responsesPerYear": 100000,
+                      "sku": "team-premier", "name": "Example Pro", "active": true, "planId": "premier", "minEmployees": 11, "maxEmployees": 50, "responsesPerYear": 100000,
                       "prices": [
-                        { "country": "US", "currency": "usd", "unit_amount": 9900,  "billing_scheme": "per_unit", "type": "recurring", "is_default": true  },
-                        { "country": "CR", "currency": "crc", "unit_amount": 51900, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
+                        { "country": "US", "currency": "usd", "unit_amount": 2000, "billing_scheme": "per_unit", "type": "recurring", "is_default": true },
+                        { "country": "CR", "currency": "crc", "unit_amount": 10000, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
                       ]
                     },
                     {
-                      "sku": "team-enterprise", "name": "Team Enterprise", "active": true, "planId": "enterprise", "minEmployees": 51, "maxEmployees": "unlimited", "responsesPerYear": 200000,
+                      "sku": "team-enterprise", "name": "Example Max", "active": true, "planId": "enterprise", "minEmployees": 51, "maxEmployees": "unlimited", "responsesPerYear": 200000,
                       "prices": [
-                        { "country": "US", "currency": "usd", "unit_amount": 19900,  "billing_scheme": "per_unit", "type": "recurring", "is_default": true  },
-                        { "country": "CR", "currency": "crc", "unit_amount": 99900, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
+                        { "country": "US", "currency": "usd", "unit_amount": 5000, "billing_scheme": "per_unit", "type": "recurring", "is_default": true },
+                        { "country": "CR", "currency": "crc", "unit_amount": 25000, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
                       ]
                     }
                   ],
@@ -468,10 +468,10 @@
                 },
                 "example": {
                   "plans": [
-                    { "planId": "starter",    "name": "Starter",           "description": "Free plan for individuals and very small teams.", "minEmployees": 1,  "maxEmployees": 3,           "supportsSSO": false, "price": 0,     "currency": "USD", "billingCycle": "monthly" },
-                    { "planId": "advantage",  "name": "Team Advantage", "description": "For small teams getting started.",               "minEmployees": 4,  "maxEmployees": 10,          "supportsSSO": false, "price": 4900,  "currency": "USD", "billingCycle": "monthly" },
-                    { "planId": "premier",    "name": "Team Premier",   "description": "For growing teams that need more capacity.",     "minEmployees": 11, "maxEmployees": 50,          "supportsSSO": false, "price": 9900,  "currency": "USD", "billingCycle": "monthly" },
-                    { "planId": "enterprise", "name": "Team Enterprise","description": "For large teams with advanced needs including SSO.", "minEmployees": 51, "maxEmployees": "unlimited", "supportsSSO": true,  "price": 19900, "currency": "USD", "billingCycle": "monthly" }
+                    { "planId": "starter",    "name": "Example Starter",  "description": "Free plan for individuals and very small teams.", "minEmployees": 1,  "maxEmployees": 3,           "supportsSSO": false, "price": 0,    "currency": "USD", "billingCycle": "monthly" },
+                    { "planId": "advantage",  "name": "Example Standard", "description": "For small teams getting started.",               "minEmployees": 4,  "maxEmployees": 10,          "supportsSSO": false, "price": 1000, "currency": "USD", "billingCycle": "monthly" },
+                    { "planId": "premier",    "name": "Example Pro",      "description": "For growing teams that need more capacity.",     "minEmployees": 11, "maxEmployees": 50,          "supportsSSO": false, "price": 2000, "currency": "USD", "billingCycle": "monthly" },
+                    { "planId": "enterprise", "name": "Example Max",      "description": "For large teams with advanced needs including SSO.", "minEmployees": 51, "maxEmployees": "unlimited", "supportsSSO": true,  "price": 5000, "currency": "USD", "billingCycle": "monthly" }
                   ],
                   "signupUrl": "https://llmsopenapi.vercel.app/signup",
                   "plansUrl": "https://llmsopenapi.vercel.app/features"
@@ -519,12 +519,12 @@
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/PlanRecommendation" },
                 "example": {
-                  "recommendedPlan": "Team Enterprise",
-                  "planId": "enterprise",
-                  "price": 99900,
-                  "currency": "CRC",
+                  "recommendedPlan": "Example Pro",
+                  "planId": "premier",
+                  "price": 2000,
+                  "currency": "USD",
                   "billingCycle": "monthly",
-                  "reasons": ["15 employees fits Team Enterprise (51+ employees)", "SSO required — only Team Enterprise supports SSO"],
+                  "reasons": ["15 employees fits Example Pro (11–50 employees)", "SSO required — only Example Max supports SSO"],
                   "signupUrl": "https://llmsopenapi.vercel.app/signup",
                   "plansUrl": "https://llmsopenapi.vercel.app/features",
                   "nextAction": "create_account"
@@ -581,14 +581,14 @@
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/PlanRecommendation" },
                 "example": {
-                  "recommendedPlan": "Team Enterprise",
-                  "planId": "enterprise",
-                  "price": 99900,
-                  "currency": "CRC",
+                  "recommendedPlan": "Example Pro",
+                  "planId": "premier",
+                  "price": 2000,
+                  "currency": "USD",
                   "billingCycle": "monthly",
                   "reasons": [
-                    "15 employees fits Team Enterprise (51+ employees)",
-                    "SSO required — only Team Enterprise supports SSO"
+                    "15 employees fits Example Pro (11–50 employees)",
+                    "SSO required — only Example Max supports SSO"
                   ],
                   "signupUrl": "https://llmsopenapi.vercel.app/signup",
                   "plansUrl": "https://llmsopenapi.vercel.app/features",
@@ -723,8 +723,8 @@
                 "example": {
                   "subscriptionId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
                   "accountId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                  "plan": "Team Enterprise",
-                  "price": 19900,
+                  "plan": "Example Pro",
+                  "price": 2000,
                   "currency": "USD",
                   "billingCycle": "monthly",
                   "status": "pending",
