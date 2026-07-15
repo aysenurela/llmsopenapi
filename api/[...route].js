@@ -19,19 +19,19 @@ const PLANS = {
     id: 'advantage', name: 'Team Advantage',
     description: 'For small teams getting started.',
     minEmployees: 4, maxEmployees: 10, supportsSSO: false,
-    priceUSD: 4900, priceCRC: 25900,
+    priceUSD: 5900, priceCRC: 30900,
   },
   premier: {
     id: 'premier', name: 'Team Premier',
     description: 'For growing teams that need more capacity.',
     minEmployees: 11, maxEmployees: 50, supportsSSO: false,
-    priceUSD: 9900, priceCRC: 51900,
+    priceUSD: 11900, priceCRC: 61900,
   },
   enterprise: {
     id: 'enterprise', name: 'Team Enterprise',
     description: 'For large teams with advanced needs including SSO.',
     minEmployees: 51, maxEmployees: Infinity, supportsSSO: true,
-    priceUSD: 19900, priceCRC: 99900,
+    priceUSD: 24900, priceCRC: 129900,
   },
 }
 
