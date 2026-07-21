@@ -13,25 +13,25 @@ const PLANS = {
     id: 'starter', name: 'Starter',
     description: 'Free plan for individuals and very small teams.',
     minEmployees: 1, maxEmployees: 3, supportsSSO: false,
-    priceUSD: 0, priceCRC: 0,
+    priceUSD: 0, priceCAD: 0, priceCRC: 0,
   },
   advantage: {
     id: 'advantage', name: 'Team Advantage',
     description: 'For small teams getting started.',
     minEmployees: 4, maxEmployees: 10, supportsSSO: false,
-    priceUSD: 5900, priceCRC: 30900,
+    priceUSD: 5900, priceCAD: 7900, priceCRC: 30900,
   },
   premier: {
     id: 'premier', name: 'Team Premier',
     description: 'For growing teams that need more capacity.',
     minEmployees: 11, maxEmployees: 50, supportsSSO: false,
-    priceUSD: 11900, priceCRC: 61900,
+    priceUSD: 11900, priceCAD: 15900, priceCRC: 61900,
   },
   enterprise: {
     id: 'enterprise', name: 'Team Enterprise',
     description: 'For large teams with advanced needs including SSO.',
     minEmployees: 51, maxEmployees: Infinity, supportsSSO: true,
-    priceUSD: 24900, priceCRC: 129900,
+    priceUSD: 24900, priceCAD: 33900, priceCRC: 129900,
   },
 }
 
@@ -44,8 +44,12 @@ const PRODUCTS = [
   { sku: 'team-enterprise', planId: 'enterprise', responsesPerYear: 200000 },
 ]
 
-function isCRC(country) {
-  return !!country && ['CR', 'CRI', 'COSTA RICA'].includes(country.toUpperCase())
+function currencyForCountry(country) {
+  if (!country) return 'USD'
+  const c = country.toUpperCase()
+  if (['CR', 'CRI', 'COSTA RICA'].includes(c)) return 'CRC'
+  if (['CA', 'CAN', 'CANADA'].includes(c)) return 'CAD'
+  return 'USD'
 }
 
 function parseBool(val) {
@@ -57,10 +61,11 @@ function selectPlan(employees, needsSSO) {
   return Object.values(PLANS).find(p => employees <= p.maxEmployees) ?? PLANS.enterprise
 }
 
+const PRICE_KEY = { USD: 'priceUSD', CAD: 'priceCAD', CRC: 'priceCRC' }
+
 function planPrice(plan, country) {
-  return isCRC(country)
-    ? { price: plan.priceCRC, currency: 'CRC' }
-    : { price: plan.priceUSD, currency: 'USD' }
+  const currency = currencyForCountry(country)
+  return { price: plan[PRICE_KEY[currency]], currency }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -117,7 +122,7 @@ function handleListPlans(req, res) {
 
 function handlePricing(req, res) {
   const { country, employees: employeesRaw, needsSSO } = req.query ?? {}
-  const cr = isCRC(country)
+  const cur = currencyForCountry(country)
   const employees = employeesRaw ? Number(employeesRaw) : null
   const recommendedPlanId = (employees !== null && !Number.isNaN(employees))
     ? selectPlan(employees, parseBool(needsSSO)).id
@@ -134,14 +139,20 @@ function handlePricing(req, res) {
       maxEmployees: plan.maxEmployees === Infinity ? 'unlimited' : plan.maxEmployees,
       responsesPerYear: product.responsesPerYear,
       prices: [
-        { country: 'US', currency: 'usd', unit_amount: plan.priceUSD, billing_scheme: 'per_unit', type: 'recurring', is_default: !cr },
-        { country: 'CR', currency: 'crc', unit_amount: plan.priceCRC, billing_scheme: 'per_unit', type: 'recurring', is_default: cr },
+        { country: 'US', currency: 'usd', unit_amount: plan.priceUSD, billing_scheme: 'per_unit', type: 'recurring', is_default: cur === 'USD' },
+        { country: 'CA', currency: 'cad', unit_amount: plan.priceCAD, billing_scheme: 'per_unit', type: 'recurring', is_default: cur === 'CAD' },
+        { country: 'CR', currency: 'crc', unit_amount: plan.priceCRC, billing_scheme: 'per_unit', type: 'recurring', is_default: cur === 'CRC' },
       ],
     }
     if (recommendedPlanId !== null) entry.is_recommended = product.planId === recommendedPlanId
     return entry
   })
-  send(res, 200, { products, ...HELPFUL_LINKS })
+  const qs = new URLSearchParams()
+  if (country) qs.set('country', country)
+  if (employeesRaw) qs.set('employees', employeesRaw)
+  if (needsSSO) qs.set('needsSSO', needsSSO)
+  const self = BASE_URL + '/api/pricing' + (qs.size ? '?' + qs : '')
+  send(res, 200, { self, products, ...HELPFUL_LINKS })
 }
 
 function handleRecommendPlan(req, res) {

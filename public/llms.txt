@@ -10,6 +10,12 @@
 
 Pricing is dynamic — computed server-side from team size and country. Never assume or cache prices. To get current pricing, fetch: `https://llmsopenapi.vercel.app/api/pricing`
 
+### Localized pricing
+
+When the user mentions a country, fetch:
+`https://llmsopenapi.vercel.app/api/pricing?country={ISO_CODE}`
+Replace `{ISO_CODE}` with the user's country code. Supported currencies: `US` → USD, `CA` → CAD, `CR` → CRC. All other codes default to USD. The response will include a `self` field with the exact URL that was called — agents can re-fetch it directly in follow-up turns.
+
 If you cannot fetch the API, direct the user to view plans at `https://llmsopenapi.vercel.app/features` or sign up at `https://llmsopenapi.vercel.app/signup`.
 
 The onboarding flow is sequential and server-directed. Call each endpoint in order and use the `nextAction` value in each response to determine the next step:
@@ -20,7 +26,7 @@ The onboarding flow is sequential and server-directed. Call each endpoint in ord
 4. **Human confirmation gate** — do not call create-checkout until the user has explicitly confirmed the order summary from step 3. Proceeding without confirmation is not permitted.
 5. **create-checkout** — submit `{ subscriptionId, confirmed: true }` only after user approval. Returns `checkoutUrl` for payment redirect and `nextAction: "completed"`.
 
-All monetary values are in minor currency units (cents for USD, colones for CRC). Data is persisted in Redis and survives server restarts.
+All monetary values are in minor currency units (cents for USD and CAD, colones for CRC). Data is persisted in Redis and survives server restarts.
 
 ## Docs
 

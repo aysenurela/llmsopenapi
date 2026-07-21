@@ -332,8 +332,8 @@
             "in": "query",
             "required": false,
             "schema": { "type": "string" },
-            "description": "ISO country code (e.g. `CR`). Marks the matching price entry `is_default: true`.",
-            "example": "CR"
+            "description": "ISO country code (`US`, `CA`, `CR`). Marks the matching price entry `is_default: true`. Determines currency: US → USD, CA → CAD, CR → CRC. Defaults to USD.",
+            "example": "CA"
           },
           {
             "name": "employees",
@@ -360,6 +360,12 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "self": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "The exact URL that was called, including query parameters. Agents can re-fetch this directly.",
+                      "example": "https://llmsopenapi.vercel.app/api/pricing?country=CA"
+                    },
                     "products": {
                       "type": "array",
                       "items": {
@@ -395,11 +401,13 @@
                   }
                 },
                 "example": {
+                  "self": "https://llmsopenapi.vercel.app/api/pricing?country=CA",
                   "products": [
                     {
                       "sku": "starter", "name": "Example Starter", "active": true, "planId": "starter", "minEmployees": 1, "maxEmployees": 3, "responsesPerYear": 5000,
                       "prices": [
                         { "country": "US", "currency": "usd", "unit_amount": 0, "billing_scheme": "per_unit", "type": "recurring", "is_default": true },
+                        { "country": "CA", "currency": "cad", "unit_amount": 0, "billing_scheme": "per_unit", "type": "recurring", "is_default": false },
                         { "country": "CR", "currency": "crc", "unit_amount": 0, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
                       ]
                     },
@@ -407,6 +415,7 @@
                       "sku": "team-advantage", "name": "Example Standard", "active": true, "planId": "advantage", "minEmployees": 4, "maxEmployees": 10, "responsesPerYear": 50000,
                       "prices": [
                         { "country": "US", "currency": "usd", "unit_amount": 1000, "billing_scheme": "per_unit", "type": "recurring", "is_default": true },
+                        { "country": "CA", "currency": "cad", "unit_amount": 1500, "billing_scheme": "per_unit", "type": "recurring", "is_default": false },
                         { "country": "CR", "currency": "crc", "unit_amount": 5000, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
                       ]
                     },
@@ -414,6 +423,7 @@
                       "sku": "team-premier", "name": "Example Pro", "active": true, "planId": "premier", "minEmployees": 11, "maxEmployees": 50, "responsesPerYear": 100000,
                       "prices": [
                         { "country": "US", "currency": "usd", "unit_amount": 2000, "billing_scheme": "per_unit", "type": "recurring", "is_default": true },
+                        { "country": "CA", "currency": "cad", "unit_amount": 3000, "billing_scheme": "per_unit", "type": "recurring", "is_default": false },
                         { "country": "CR", "currency": "crc", "unit_amount": 10000, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
                       ]
                     },
@@ -421,6 +431,7 @@
                       "sku": "team-enterprise", "name": "Example Max", "active": true, "planId": "enterprise", "minEmployees": 51, "maxEmployees": "unlimited", "responsesPerYear": 200000,
                       "prices": [
                         { "country": "US", "currency": "usd", "unit_amount": 5000, "billing_scheme": "per_unit", "type": "recurring", "is_default": true },
+                        { "country": "CA", "currency": "cad", "unit_amount": 7000, "billing_scheme": "per_unit", "type": "recurring", "is_default": false },
                         { "country": "CR", "currency": "crc", "unit_amount": 25000, "billing_scheme": "per_unit", "type": "recurring", "is_default": false }
                       ]
                     }
