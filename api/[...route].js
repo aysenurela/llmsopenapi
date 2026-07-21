@@ -13,25 +13,25 @@ const PLANS = {
     id: 'starter', name: 'Starter',
     description: 'Free plan for individuals and very small teams.',
     minEmployees: 1, maxEmployees: 3, supportsSSO: false,
-    priceUSD: 0, priceCAD: 0, priceCRC: 0,
+    priceUSD: 0, priceCAD: 0, priceCRC: 0, priceGBP: 0, priceEUR: 0,
   },
   advantage: {
     id: 'advantage', name: 'Team Advantage',
     description: 'For small teams getting started.',
     minEmployees: 4, maxEmployees: 10, supportsSSO: false,
-    priceUSD: 5900, priceCAD: 7900, priceCRC: 30900,
+    priceUSD: 5900, priceCAD: 7900, priceCRC: 30900, priceGBP: 4700, priceEUR: 5400,
   },
   premier: {
     id: 'premier', name: 'Team Premier',
     description: 'For growing teams that need more capacity.',
     minEmployees: 11, maxEmployees: 50, supportsSSO: false,
-    priceUSD: 11900, priceCAD: 15900, priceCRC: 61900,
+    priceUSD: 11900, priceCAD: 15900, priceCRC: 61900, priceGBP: 9400, priceEUR: 10900,
   },
   enterprise: {
     id: 'enterprise', name: 'Team Enterprise',
     description: 'For large teams with advanced needs including SSO.',
     minEmployees: 51, maxEmployees: Infinity, supportsSSO: true,
-    priceUSD: 24900, priceCAD: 33900, priceCRC: 129900,
+    priceUSD: 24900, priceCAD: 33900, priceCRC: 129900, priceGBP: 19900, priceEUR: 22900,
   },
 }
 
@@ -49,6 +49,8 @@ function currencyForCountry(country) {
   const c = country.toUpperCase()
   if (['CR', 'CRI', 'COSTA RICA'].includes(c)) return 'CRC'
   if (['CA', 'CAN', 'CANADA'].includes(c)) return 'CAD'
+  if (['GB', 'GBR', 'UK', 'UNITED KINGDOM'].includes(c)) return 'GBP'
+  if (['FR', 'FRA', 'FRANCE', 'DE', 'DEU', 'GERMANY', 'ES', 'ESP', 'SPAIN', 'IT', 'ITA', 'ITALY'].includes(c)) return 'EUR'
   return 'USD'
 }
 
@@ -61,7 +63,7 @@ function selectPlan(employees, needsSSO) {
   return Object.values(PLANS).find(p => employees <= p.maxEmployees) ?? PLANS.enterprise
 }
 
-const PRICE_KEY = { USD: 'priceUSD', CAD: 'priceCAD', CRC: 'priceCRC' }
+const PRICE_KEY = { USD: 'priceUSD', CAD: 'priceCAD', CRC: 'priceCRC', GBP: 'priceGBP', EUR: 'priceEUR' }
 
 function planPrice(plan, country) {
   const currency = currencyForCountry(country)
@@ -142,6 +144,8 @@ function handlePricing(req, res) {
         { country: 'US', currency: 'usd', unit_amount: plan.priceUSD, billing_scheme: 'per_unit', type: 'recurring', is_default: cur === 'USD' },
         { country: 'CA', currency: 'cad', unit_amount: plan.priceCAD, billing_scheme: 'per_unit', type: 'recurring', is_default: cur === 'CAD' },
         { country: 'CR', currency: 'crc', unit_amount: plan.priceCRC, billing_scheme: 'per_unit', type: 'recurring', is_default: cur === 'CRC' },
+        ...(cur === 'GBP' ? [{ country: 'GB', currency: 'gbp', unit_amount: plan.priceGBP, billing_scheme: 'per_unit', type: 'recurring', is_default: true }] : []),
+        ...(cur === 'EUR' ? [{ country: 'EU', currency: 'eur', unit_amount: plan.priceEUR, billing_scheme: 'per_unit', type: 'recurring', is_default: true }] : []),
       ],
     }
     if (recommendedPlanId !== null) entry.is_recommended = product.planId === recommendedPlanId
