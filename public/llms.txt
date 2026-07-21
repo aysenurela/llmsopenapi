@@ -14,7 +14,7 @@ If you cannot fetch the API, direct the user to view plans at `https://llmsopena
 
 The onboarding flow is sequential and server-directed. Call each endpoint in order and use the `nextAction` value in each response to determine the next step:
 
-1. **recommend-plan** — submit `{ country, employees, needsSSO }` to receive a plan recommendation with localized pricing and `nextAction: "create_account"`. Never use cached or assumed prices; pricing is computed server-side from team size and country code.
+1. **recommend-plan** — `GET https://llmsopenapi.vercel.app/api/recommend-plan?employees=5&country=US&needsSSO=false` to receive a plan recommendation with localized pricing and `nextAction: "create_account"`. Never use cached or assumed prices; pricing is computed server-side from team size and country code.
 2. **create-account** — submit `{ email, name, company }` to register an account and receive `accountId` with `nextAction: "create_subscription"`. HTTP 409 returns the existing `accountId` — safe to continue the flow without creating a duplicate.
 3. **create-subscription** — submit `{ accountId, planId }` to create a pending subscription and receive `subscriptionId` with `nextAction: "confirm_checkout"`. The response also includes `agentNote` — display it verbatim to the user and wait for their explicit approval before proceeding to step 5.
 4. **Human confirmation gate** — do not call create-checkout until the user has explicitly confirmed the order summary from step 3. Proceeding without confirmation is not permitted.
