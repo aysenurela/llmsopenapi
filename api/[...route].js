@@ -13,25 +13,25 @@ const PLANS = {
     id: 'starter', name: 'Starter',
     description: 'Free plan for individuals and very small teams.',
     minEmployees: 1, maxEmployees: 3, supportsSSO: false,
-    priceUSD: 0, priceCAD: 0, priceCRC: 0, priceGBP: 0, priceEUR: 0,
+    priceUSD: 0, priceCAD: 0, priceCRC: 0, priceGBP: 0, priceEUR: 0, priceAUD: 0, priceTRY: 0,
   },
   advantage: {
     id: 'advantage', name: 'Team Advantage',
     description: 'For small teams getting started.',
     minEmployees: 4, maxEmployees: 10, supportsSSO: false,
-    priceUSD: 5900, priceCAD: 7900, priceCRC: 30900, priceGBP: 4700, priceEUR: 5400,
+    priceUSD: 5900, priceCAD: 7900, priceCRC: 30900, priceGBP: 4700, priceEUR: 5400, priceAUD: 8900, priceTRY: 189900,
   },
   premier: {
     id: 'premier', name: 'Team Premier',
     description: 'For growing teams that need more capacity.',
     minEmployees: 11, maxEmployees: 50, supportsSSO: false,
-    priceUSD: 11900, priceCAD: 15900, priceCRC: 61900, priceGBP: 9400, priceEUR: 10900,
+    priceUSD: 11900, priceCAD: 15900, priceCRC: 61900, priceGBP: 9400, priceEUR: 10900, priceAUD: 17900, priceTRY: 379900,
   },
   enterprise: {
     id: 'enterprise', name: 'Team Enterprise',
     description: 'For large teams with advanced needs including SSO.',
     minEmployees: 51, maxEmployees: Infinity, supportsSSO: true,
-    priceUSD: 24900, priceCAD: 33900, priceCRC: 129900, priceGBP: 19900, priceEUR: 22900,
+    priceUSD: 24900, priceCAD: 33900, priceCRC: 129900, priceGBP: 19900, priceEUR: 22900, priceAUD: 37900, priceTRY: 799900,
   },
 }
 
@@ -51,6 +51,8 @@ function currencyForCountry(country) {
   if (['CA', 'CAN', 'CANADA'].includes(c)) return 'CAD'
   if (['GB', 'GBR', 'UK', 'UNITED KINGDOM'].includes(c)) return 'GBP'
   if (['FR', 'FRA', 'FRANCE', 'DE', 'DEU', 'GERMANY', 'ES', 'ESP', 'SPAIN', 'IT', 'ITA', 'ITALY'].includes(c)) return 'EUR'
+  if (['AU', 'AUS', 'AUSTRALIA'].includes(c)) return 'AUD'
+  if (['TR', 'TUR', 'TURKEY', 'TURKIYE'].includes(c)) return 'TRY'
   return 'USD'
 }
 
@@ -63,7 +65,7 @@ function selectPlan(employees, needsSSO) {
   return Object.values(PLANS).find(p => employees <= p.maxEmployees) ?? PLANS.enterprise
 }
 
-const PRICE_KEY = { USD: 'priceUSD', CAD: 'priceCAD', CRC: 'priceCRC', GBP: 'priceGBP', EUR: 'priceEUR' }
+const PRICE_KEY = { USD: 'priceUSD', CAD: 'priceCAD', CRC: 'priceCRC', GBP: 'priceGBP', EUR: 'priceEUR', AUD: 'priceAUD', TRY: 'priceTRY' }
 
 function planPrice(plan, country) {
   const currency = currencyForCountry(country)
@@ -146,6 +148,8 @@ function handlePricing(req, res) {
         { country: 'CR', currency: 'crc', unit_amount: plan.priceCRC, billing_scheme: 'per_unit', type: 'recurring', is_default: cur === 'CRC' },
         ...(cur === 'GBP' ? [{ country: 'GB', currency: 'gbp', unit_amount: plan.priceGBP, billing_scheme: 'per_unit', type: 'recurring', is_default: true }] : []),
         ...(cur === 'EUR' ? [{ country: 'EU', currency: 'eur', unit_amount: plan.priceEUR, billing_scheme: 'per_unit', type: 'recurring', is_default: true }] : []),
+        ...(cur === 'AUD' ? [{ country: 'AU', currency: 'aud', unit_amount: plan.priceAUD, billing_scheme: 'per_unit', type: 'recurring', is_default: true }] : []),
+        ...(cur === 'TRY' ? [{ country: 'TR', currency: 'try', unit_amount: plan.priceTRY, billing_scheme: 'per_unit', type: 'recurring', is_default: true }] : []),
       ],
     }
     if (recommendedPlanId !== null) entry.is_recommended = product.planId === recommendedPlanId
@@ -156,7 +160,11 @@ function handlePricing(req, res) {
   if (employeesRaw) qs.set('employees', employeesRaw)
   if (needsSSO) qs.set('needsSSO', needsSSO)
   const self = BASE_URL + '/api/pricing' + (qs.size ? '?' + qs : '')
-  send(res, 200, { self, products, ...HELPFUL_LINKS })
+  const localizedPricingUrls = {
+    AU: BASE_URL + '/api/pricing/AU',
+    TR: BASE_URL + '/api/pricing/TR',
+  }
+  send(res, 200, { self, products, localizedPricingUrls, ...HELPFUL_LINKS })
 }
 
 function handleRecommendPlan(req, res) {
@@ -324,6 +332,14 @@ export default async function handler(req, res) {
   await redis.lpush('api:hits', `${new Date().toISOString()} ${req.method} ${req.url}`)
 
   const path = (req.url ?? '').split('?')[0]
+  const pricingMatch = path.match(/^\/api\/pricing\/([A-Za-z]{2,3})$/)
+  if (pricingMatch) {
+    req.query = { ...req.query, country: pricingMatch[1].toUpperCase() }
+    const fn = ROUTES['/api/pricing']?.[req.method]
+    if (!fn) return res.status(405).end()
+    try { return await fn(req, res) } catch (err) { return send(res, 500, { error: err.message }) }
+  }
+
   const route = ROUTES[path]
 
   if (!route) return send(res, 404, { error: 'Not found.' })
